@@ -152,7 +152,17 @@ no rush and no correctness issue while the store is mixed (it's a smooth ~1% off
 noise). Windowing is a config knob (`slices`, `sec`), so "less economy later" is a
 parameter change, not a rewrite.
 
-## 7.7 Deployment
+## 7.7 Deployment — ✅ LIVE (2026-07-24)
+
+Deployed as `autodj-server/incremental_indexer.py` + `docker-compose.indexer.yml`, running
+on stol as the `autodj-indexer` container (crate-essentia image, model baked in). Poll 60s,
+settle 90s. Embeds new tracks with the **d6×10 window** (parity with the bulk digest — this
+supersedes the `slices=0` full-track suggestion in the pseudocode above; keeping one
+embedding space matters more than the ~1% fidelity gain). Reaches the recommender's
+`/reload` via `host.docker.internal:8001`. Verified end-to-end: deleting a track's index
+row → daemon re-ingested it next cycle → atomic export → recommender reloaded.
+
+
 
 - **New sibling container** `autodj-indexer` (or a thread inside `autodj-recommender`).
   Mounts: beets blb `:ro`, `/mnt/storage/media/music:/music:ro`, its own data volume.
