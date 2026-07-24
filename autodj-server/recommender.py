@@ -217,6 +217,10 @@ def session_next():
     if not p.get("allowDuplicates", False):
         exclude |= set(recent) | set(seeds)
 
+    print(f"[session/next] seeds {len(seeds)}/{len(req.get('seeds', []))} resolved, "
+          f"recent {len(recent)}/{len(req.get('recent', []))} resolved, "
+          f"exclude={len(exclude)}, N={S['N']}", flush=True)
+
     ctx = recent or seeds or [int(_rng.integers(S["N"]))]   # cold start → random seed
     E = S["E"]
     w = np.array([K["decay"] ** (len(ctx) - 1 - i) for i in range(len(ctx))], dtype=np.float32)
@@ -226,6 +230,7 @@ def session_next():
 
     mask = _filter_mask(S, p, exclude)
     if mask.sum() == 0:
+        print("[session/next] -> 0 tracks (no candidates after filters)", flush=True)
         return jsonify(tracks=[], debug={"reason": "no candidates after filters"})
     idx = np.nonzero(mask)[0]
     sims = E[idx] @ c
@@ -286,6 +291,8 @@ def session_next():
     sel_rows = np.array(sel_rows) if sel_rows else np.array([], dtype=int)
 
     tracks = [S["row_nav"][r] for r in selected if S["row_nav"][r]]
+    print(f"[session/next] -> {len(tracks)} tracks (eligible={int(mask.sum())} "
+          f"pool={len(cand)}); first few: {tracks[:3]}", flush=True)
     return jsonify(tracks=tracks, debug={
         "contrast": p.get("contrast", 0.35), "pool": int(len(cand)),
         "eligible": int(mask.sum()), "ctx": len(ctx),

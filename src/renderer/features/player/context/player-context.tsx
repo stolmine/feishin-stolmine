@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid/non-secure';
 import { createContext, useCallback, useContext, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { api } from '/@/renderer/api';
 import { queryKeys } from '/@/renderer/api/query-keys';
 import { albumQueries } from '/@/renderer/features/albums/api/album-api';
 import { artistsQueries } from '/@/renderer/features/artists/api/artists-api';
@@ -938,6 +939,20 @@ export async function fetchSongsByItemType(
 
             const results = await Promise.all(promises);
             songs.push(...results.flatMap((r) => r.items));
+            break;
+        }
+
+        case LibraryItem.SONG: {
+            // Fetch individual songs by id (e.g. the vector AutoDJ recommender returns a
+            // list of song ids). Mirrors the PLAYLIST per-id fan-out.
+            const promises = args.id.map((id) =>
+                api.controller.getSongDetail({
+                    apiClientProps: { serverId },
+                    query: { id },
+                }),
+            );
+            const results = await Promise.all(promises);
+            songs.push(...results.filter((song): song is Song => Boolean(song)));
             break;
         }
     }
