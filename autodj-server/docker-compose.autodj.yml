@@ -1,0 +1,15 @@
+# AutoDJ recommender — deploy alongside the crate/essentia stack on stol.
+#   docker compose -f docker-compose.autodj.yml up -d --build
+# Mounts the derived index (built by the digest / incremental indexer) read-only and
+# publishes port 8001 so Feishin can reach it over Tailscale at stol:8001.
+services:
+  autodj-recommender:
+    build: .
+    container_name: autodj-recommender
+    environment:
+      - AUTODJ_INDEX=/index
+    volumes:
+      - /home/stol/docker/crate/autodj-index:/index:ro
+    ports:
+      - "8001:8001"
+    restart: unless-stopped

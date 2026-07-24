@@ -51,6 +51,9 @@ const BINDINGS_MAP: Record<BindingActions, string> = {
     globalSearch: i18n.t('setting.hotkey', {
         context: 'globalSearch',
     }),
+    goToCurrentSongAlbum: i18n.t('setting.hotkey', {
+        context: 'goToCurrentSongAlbum',
+    }),
     listNavigateToPage: i18n.t('setting.hotkey', {
         context: 'listNavigateToPage',
     }),

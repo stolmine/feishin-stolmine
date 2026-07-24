@@ -956,6 +956,7 @@
         "hotkey_favoriteCurrentSong": "Favorite $t(common.currentSong)",
         "hotkey_favoritePreviousSong": "Favorite $t(common.previousSong)",
         "hotkey_globalSearch": "Global search",
+        "hotkey_goToCurrentSongAlbum": "Go to current song's album",
         "hotkey_localSearch": "In-page search",
         "hotkey_listNavigateToPage": "List navigate to item page",
         "hotkey_listPlayDefault": "List play",

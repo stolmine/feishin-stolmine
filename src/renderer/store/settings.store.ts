@@ -142,6 +142,7 @@ const BindingActionsSchema = z.enum([
     'favoritePreviousRemove',
     'favoritePreviousToggle',
     'globalSearch',
+    'goToCurrentSongAlbum',
     'localSearch',
     'volumeMute',
     'navigateHome',
@@ -739,21 +740,38 @@ export type AutoDJMode = (typeof AUTO_DJ_MODE)[keyof typeof AUTO_DJ_MODE];
 export const AUTO_DJ_STRATEGY = {
     LIBRARY_RANDOM: 'library_random',
     SIMILAR: 'similar',
+    VECTOR: 'vector',
 } as const;
 
 export type AutoDJStrategy = (typeof AUTO_DJ_STRATEGY)[keyof typeof AUTO_DJ_STRATEGY];
 
-const autoDjStrategyEnum = z.enum(['similar', 'library_random']);
+const autoDjStrategyEnum = z.enum(['similar', 'library_random', 'vector']);
 
 const AutoDJSettingsSchema = z.object({
     albumStrategy: autoDjStrategyEnum,
     allowDuplicates: z.boolean(),
+    // vector-strategy filters (advanced). Empty arrays / 0 = "no filter".
+    artistsExclude: z.array(z.string()),
+    artistsInclude: z.array(z.string()),
+    bpmMax: z.number(),
+    bpmMin: z.number(),
+    // 0 = maximum consistency (hug the vibe), 1 = maximum variety — the vector engine's
+    // single contrast knob (only used when songStrategy === 'vector').
+    contrast: z.number(),
     enabled: z.boolean(),
+    genresAllow: z.array(z.string()),
+    genresExclude: z.array(z.string()),
     itemCount: z.number(),
+    lengthMaxSec: z.number(),
+    lengthMinSec: z.number(),
     mode: z.enum(['songs', 'albums']),
     onlySimilar: z.boolean(),
+    // base URL of the self-hosted AutoDJ recommender (vector strategy).
+    recommenderUrl: z.string(),
     songStrategy: autoDjStrategyEnum,
     timing: z.number(),
+    yearMax: z.number(),
+    yearMin: z.number(),
 });
 
 const TagAutocompleteSourceSchema = z.string();
@@ -878,6 +896,7 @@ export enum BindingActions {
     FAVORITE_PREVIOUS_REMOVE = 'favoritePreviousRemove',
     FAVORITE_PREVIOUS_TOGGLE = 'favoritePreviousToggle',
     GLOBAL_SEARCH = 'globalSearch',
+    GO_TO_CURRENT_SONG_ALBUM = 'goToCurrentSongAlbum',
     LIST_NAVIGATE_TO_PAGE = 'listNavigateToPage',
     LIST_PLAY_DEFAULT = 'listPlayDefault',
     LIST_PLAY_LAST = 'listPlayLast',
@@ -1223,12 +1242,24 @@ const initialState: SettingsState = {
     autoDJ: {
         albumStrategy: AUTO_DJ_STRATEGY.SIMILAR,
         allowDuplicates: false,
+        artistsExclude: [],
+        artistsInclude: [],
+        bpmMax: 0,
+        bpmMin: 0,
+        contrast: 0.35,
         enabled: false,
+        genresAllow: [],
+        genresExclude: [],
         itemCount: 5,
+        lengthMaxSec: 0,
+        lengthMinSec: 0,
         mode: 'songs',
         onlySimilar: false,
+        recommenderUrl: '',
         songStrategy: AUTO_DJ_STRATEGY.SIMILAR,
         timing: 1,
+        yearMax: 0,
+        yearMin: 0,
     },
     css: {
         content: '',
@@ -1359,6 +1390,7 @@ const initialState: SettingsState = {
             favoritePreviousRemove: { allowGlobal: true, hotkey: '', isGlobal: false },
             favoritePreviousToggle: { allowGlobal: true, hotkey: '', isGlobal: false },
             globalSearch: { allowGlobal: false, hotkey: 'mod+k', isGlobal: false },
+            goToCurrentSongAlbum: { allowGlobal: false, hotkey: '', isGlobal: false },
             listNavigateToPage: { allowGlobal: false, hotkey: 'mod+g', isGlobal: false },
             listPlayDefault: { allowGlobal: false, hotkey: 'enter', isGlobal: false },
             listPlayLast: { allowGlobal: false, hotkey: '', isGlobal: false },
@@ -2733,10 +2765,40 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                     }
                 }
 
+                if (version < 34) {
+                    if (state.autoDJ.contrast === undefined) {
+                        state.autoDJ.contrast = initialState.autoDJ.contrast;
+                    }
+
+                    if (state.autoDJ.recommenderUrl === undefined) {
+                        state.autoDJ.recommenderUrl = initialState.autoDJ.recommenderUrl;
+                    }
+                }
+
+                if (version < 35) {
+                    const defaults = initialState.autoDJ;
+                    for (const key of [
+                        'artistsExclude',
+                        'artistsInclude',
+                        'bpmMax',
+                        'bpmMin',
+                        'genresAllow',
+                        'genresExclude',
+                        'lengthMaxSec',
+                        'lengthMinSec',
+                        'yearMax',
+                        'yearMin',
+                    ] as const) {
+                        if (state.autoDJ[key] === undefined) {
+                            (state.autoDJ[key] as unknown) = defaults[key];
+                        }
+                    }
+                }
+
                 return persistedState;
             },
             name: 'store_settings',
-            version: 33,
+            version: 35,
         },
     ),
 );
@@ -2779,6 +2841,7 @@ export const useLayoutHotkeyBindings = () =>
             browserBack: state.hotkeys.bindings.browserBack,
             browserForward: state.hotkeys.bindings.browserForward,
             globalSearch: state.hotkeys.bindings.globalSearch,
+            goToCurrentSongAlbum: state.hotkeys.bindings.goToCurrentSongAlbum,
             navigateHome: state.hotkeys.bindings.navigateHome,
             zoomIn: state.hotkeys.bindings.zoomIn,
             zoomOut: state.hotkeys.bindings.zoomOut,

@@ -1,6 +1,7 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AutoDjFilterControls } from '/@/renderer/features/player/auto-dj/autodj-filter-controls';
 import {
     SettingOption,
     SettingsSection,
@@ -15,12 +16,15 @@ import {
 import { NumberInput } from '/@/shared/components/number-input/number-input';
 import { SegmentedControl } from '/@/shared/components/segmented-control/segmented-control';
 import { Select } from '/@/shared/components/select/select';
+import { Slider } from '/@/shared/components/slider/slider';
 import { Switch } from '/@/shared/components/switch/switch';
+import { TextInput } from '/@/shared/components/text-input/text-input';
 
 export const AutoDJSettings = memo(() => {
     const { t } = useTranslation();
     const settings = useAutoDJSettings();
     const { setSettings } = useSettingsStoreActions();
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     const itemLabels = useMemo(() => {
         return {
@@ -38,6 +42,10 @@ export const AutoDJSettings = memo(() => {
             {
                 label: t('setting.autoDJ_strategy_option_library_random'),
                 value: AUTO_DJ_STRATEGY.LIBRARY_RANDOM,
+            },
+            {
+                label: 'Vector (self-hosted)',
+                value: AUTO_DJ_STRATEGY.VECTOR,
             },
         ],
         [t],
@@ -182,5 +190,68 @@ export const AutoDJSettings = memo(() => {
         },
     ];
 
-    return <SettingsSection options={autoDJOptions} title={t('setting.autoDJ')} />;
+    // Vector-strategy-only controls (self-hosted recommender). Surfaced here for now;
+    // the dedicated AutoDJ session page + parameter modal land in a later pass.
+    if (settings.songStrategy === AUTO_DJ_STRATEGY.VECTOR) {
+        autoDJOptions.push(
+            {
+                control: (
+                    <TextInput
+                        aria-label="Recommender URL"
+                        onChange={(e) =>
+                            setSettings({
+                                autoDJ: { recommenderUrl: e.currentTarget.value },
+                            })
+                        }
+                        placeholder="http://host:8001"
+                        value={settings.recommenderUrl}
+                        w="100%"
+                    />
+                ),
+                description: 'Base URL of the self-hosted AutoDJ recommender',
+                title: 'Recommender URL',
+            },
+            {
+                control: (
+                    <Slider
+                        aria-label="Contrast"
+                        defaultValue={settings.contrast}
+                        label={(value) => value.toFixed(2)}
+                        max={1}
+                        min={0}
+                        onChangeEnd={(value) =>
+                            setSettings({
+                                autoDJ: { contrast: value },
+                            })
+                        }
+                        step={0.05}
+                        w={220}
+                    />
+                ),
+                description: '0 = consistency (hug the vibe) · 1 = maximum variety',
+                title: 'Contrast',
+            },
+            {
+                control: (
+                    <Switch
+                        aria-label="Advanced filters"
+                        checked={showAdvanced}
+                        onChange={(e) => setShowAdvanced(e.currentTarget.checked)}
+                    />
+                ),
+                description: 'Filter the candidate pool by year, genre, tempo, length, artist',
+                title: 'Advanced filters',
+            },
+        );
+    }
+
+    const showFilters = settings.songStrategy === AUTO_DJ_STRATEGY.VECTOR && showAdvanced;
+
+    return (
+        <SettingsSection
+            extra={showFilters ? <AutoDjFilterControls /> : undefined}
+            options={autoDJOptions}
+            title={t('setting.autoDJ')}
+        />
+    );
 });

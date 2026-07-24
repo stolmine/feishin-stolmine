@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { eventEmitter } from '/@/renderer/events/event-emitter';
 import { runAutoDjAlbumIds } from '/@/renderer/features/player/auto-dj/auto-dj-albums';
 import { runAutoDjSongs } from '/@/renderer/features/player/auto-dj/auto-dj-songs';
+import { runAutoDjVector } from '/@/renderer/features/player/auto-dj/auto-dj-vector';
 import { useIsPlayerFetching, usePlayer } from '/@/renderer/features/player/context/player-context';
 import {
     AUTO_DJ_STRATEGY,
@@ -127,6 +128,62 @@ export const useAutoDJ = () => {
                         return;
                     }
 
+                    // Vector strategy: delegate selection to the self-hosted recommender.
+                    // On any failure (recommender unreachable / off-tailnet) fall through to
+                    // the local similar cascade so the queue never dead-ends.
+                    if (songStrategy === AUTO_DJ_STRATEGY.VECTOR && settings.recommenderUrl) {
+                        try {
+                            // read fresh so filter edits apply without re-subscribing.
+                            const autoDJ = useSettingsStore.getState().autoDJ;
+                            const excludeIds = queue.items.map((item) => item.id);
+                            const recentIds = queue.items
+                                .slice(Math.max(0, properties.index - 10), properties.index + 1)
+                                .map((item) => item.id);
+
+                            const trackIds = await runAutoDjVector({
+                                count: settings.itemCount,
+                                currentSong: properties.song,
+                                excludeIds,
+                                params: {
+                                    allowDuplicates: autoDJ.allowDuplicates,
+                                    artistsExclude: autoDJ.artistsExclude,
+                                    artistsInclude: autoDJ.artistsInclude,
+                                    bpmMax: autoDJ.bpmMax || undefined,
+                                    bpmMin: autoDJ.bpmMin || undefined,
+                                    contrast: autoDJ.contrast,
+                                    genresAllow: autoDJ.genresAllow,
+                                    genresExclude: autoDJ.genresExclude,
+                                    lengthMaxSec: autoDJ.lengthMaxSec || undefined,
+                                    lengthMinSec: autoDJ.lengthMinSec || undefined,
+                                    yearMax: autoDJ.yearMax || undefined,
+                                    yearMin: autoDJ.yearMin || undefined,
+                                },
+                                recentIds,
+                                recommenderUrl: settings.recommenderUrl,
+                            });
+
+                            if (trackIds.length > 0) {
+                                await player.addToQueueByFetch(
+                                    serverId,
+                                    trackIds,
+                                    LibraryItem.SONG,
+                                    Play.LAST,
+                                );
+
+                                eventEmitter.emit('AUTODJ_QUEUE_ADDED', {
+                                    songCount: trackIds.length,
+                                });
+                            }
+
+                            return;
+                        } catch (error) {
+                            logger.error('Auto DJ vector failed; falling back to similar', {
+                                error: (error as Error).message,
+                                songId: properties.song?.id,
+                            });
+                        }
+                    }
+
                     const queueSongIdSet = new Set(queue.items.map((item) => item.id));
 
                     const songsToAdd = await runAutoDjSongs({
@@ -168,9 +225,11 @@ export const useAutoDJ = () => {
         settings.enabled,
         settings.albumStrategy,
         settings.allowDuplicates,
+        settings.contrast,
         settings.itemCount,
         settings.mode,
         settings.onlySimilar,
+        settings.recommenderUrl,
         settings.songStrategy,
         settings.timing,
     ]);

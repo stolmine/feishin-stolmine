@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, WheelEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PopoverPlayQueue } from '/@/renderer/features/now-playing/components/popover-play-queue';
+import { AutoDjFilterControls } from '/@/renderer/features/player/auto-dj/autodj-filter-controls';
 import { PlayerConfig } from '/@/renderer/features/player/components/player-config';
 import { CustomPlayerbarSlider } from '/@/renderer/features/player/components/playerbar-slider';
 import { SleepTimerButton } from '/@/renderer/features/player/components/sleep-timer-button';
@@ -19,7 +20,6 @@ import { useHotkeys } from '/@/renderer/hooks/use-hotkeys';
 import {
     AUTO_DJ_MODE,
     AUTO_DJ_STRATEGY,
-    type AutoDJStrategy,
     useAppStoreActions,
     useAutoDJSettings,
     useCurrentServer,
@@ -51,7 +51,6 @@ import { Paper } from '/@/shared/components/paper/paper';
 import { Popover } from '/@/shared/components/popover/popover';
 import { Rating } from '/@/shared/components/rating/rating';
 import { SegmentedControl } from '/@/shared/components/segmented-control/segmented-control';
-import { Select } from '/@/shared/components/select/select';
 import { Slider } from '/@/shared/components/slider/slider';
 import { Stack } from '/@/shared/components/stack/stack';
 import { Text } from '/@/shared/components/text/text';
@@ -111,30 +110,6 @@ const AutoDJButton = () => {
     const settings = useAutoDJSettings();
     const { setSettings } = useSettingsStoreActions();
 
-    const strategySelectData = useMemo(
-        () => [
-            {
-                label: t('setting.autoDJ_strategy_option_similar'),
-                value: AUTO_DJ_STRATEGY.SIMILAR,
-            },
-            {
-                label: t('setting.autoDJ_strategy_option_library_random'),
-                value: AUTO_DJ_STRATEGY.LIBRARY_RANDOM,
-            },
-        ],
-        [t],
-    );
-
-    const strategyTitle =
-        settings.mode === AUTO_DJ_MODE.ALBUMS
-            ? t('setting.autoDJ_albumStrategy')
-            : t('setting.autoDJ_songStrategy');
-
-    const strategyValue =
-        settings.mode === AUTO_DJ_MODE.ALBUMS
-            ? (settings.albumStrategy ?? AUTO_DJ_STRATEGY.SIMILAR)
-            : (settings.songStrategy ?? AUTO_DJ_STRATEGY.SIMILAR);
-
     const enabledOptions = useMemo(
         () => [
             {
@@ -157,29 +132,6 @@ const AutoDJButton = () => {
 
     const configOptions = useMemo(
         () => [
-            {
-                component: (
-                    <Select
-                        comboboxProps={{ withinPortal: false }}
-                        data={strategySelectData}
-                        onChange={(value) => {
-                            if (!value) return;
-                            setSettings({
-                                autoDJ:
-                                    settings.mode === AUTO_DJ_MODE.ALBUMS
-                                        ? { albumStrategy: value as AutoDJStrategy }
-                                        : { songStrategy: value as AutoDJStrategy },
-                            });
-                        }}
-                        size="sm"
-                        value={strategyValue}
-                        variant="filled"
-                        w="160px"
-                    />
-                ),
-                id: 'strategy',
-                label: strategyTitle,
-            },
             {
                 component: (
                     <NumberInput
@@ -251,16 +203,7 @@ const AutoDJButton = () => {
                 ),
             },
         ],
-        [
-            setSettings,
-            settings.itemCount,
-            settings.mode,
-            settings.timing,
-            strategySelectData,
-            strategyTitle,
-            strategyValue,
-            t,
-        ],
+        [setSettings, settings.itemCount, settings.timing, t],
     );
 
     const toggleOptions = useMemo(
@@ -363,6 +306,43 @@ const AutoDJButton = () => {
                     <Paper p="md" radius="md">
                         <ListConfigTable options={toggleOptions} />
                     </Paper>
+                    {settings.songStrategy === AUTO_DJ_STRATEGY.VECTOR && (
+                        <Paper p="md" radius="md">
+                            <Stack gap="sm">
+                                <Stack gap={4}>
+                                    <Text isNoSelect size="sm">
+                                        Contrast
+                                    </Text>
+                                    <Slider
+                                        aria-label="Contrast"
+                                        defaultValue={settings.contrast}
+                                        label={(value) => value.toFixed(2)}
+                                        max={1}
+                                        min={0}
+                                        onChangeEnd={(value) =>
+                                            setSettings({ autoDJ: { contrast: value } })
+                                        }
+                                        step={0.05}
+                                        w="100%"
+                                    />
+                                </Stack>
+                                <Popover position="left-start" withArrow withinPortal={false}>
+                                    <Popover.Target>
+                                        <Button size="compact-sm" variant="default">
+                                            Filters
+                                        </Button>
+                                    </Popover.Target>
+                                    <Popover.Dropdown
+                                        maw={280}
+                                        onClick={(e) => e.stopPropagation()}
+                                        p="sm"
+                                    >
+                                        <AutoDjFilterControls />
+                                    </Popover.Dropdown>
+                                </Popover>
+                            </Stack>
+                        </Paper>
+                    )}
                 </Stack>
             </Popover.Dropdown>
         </Popover>

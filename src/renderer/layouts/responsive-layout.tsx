@@ -1,6 +1,6 @@
 import isElectron from 'is-electron';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { generatePath, useNavigate } from 'react-router';
 
 import { useAppTracker } from '/@/renderer/features/analytics/hooks/use-app-tracker';
 import { CommandPalette } from '/@/renderer/features/search/components/command-palette';
@@ -13,6 +13,7 @@ import { AppRoute } from '/@/renderer/router/routes';
 import {
     useCommandPaletteState,
     useLayoutHotkeyBindings,
+    usePlayerSong,
     useSettingsStoreActions,
     useZoomFactor,
 } from '/@/renderer/store';
@@ -50,6 +51,7 @@ const LayoutHotkeys = () => {
     const zoomFactor = useZoomFactor();
     const { setSettings } = useSettingsStoreActions();
     const bindings = useLayoutHotkeyBindings();
+    const currentSong = usePlayerSong();
     const { close, open, opened, toggle } = useCommandPaletteState();
 
     const handlers = useMemo(
@@ -88,6 +90,18 @@ const LayoutHotkeys = () => {
             [bindings.browserBack.hotkey, () => navigate(-1)],
             [bindings.browserForward.hotkey, () => navigate(1)],
             [bindings.navigateHome.hotkey, () => navigate(AppRoute.HOME)],
+            [
+                bindings.goToCurrentSongAlbum.hotkey,
+                () => {
+                    if (currentSong?.albumId) {
+                        navigate(
+                            generatePath(AppRoute.LIBRARY_ALBUMS_DETAIL, {
+                                albumId: currentSong.albumId,
+                            }),
+                        );
+                    }
+                },
+            ],
             ...(localSettings
                 ? ([
                       [bindings.zoomIn.hotkey, () => updateZoom(5)],
@@ -95,7 +109,7 @@ const LayoutHotkeys = () => {
                   ] as HotkeyItem[])
                 : []),
         ],
-        [bindings, navigate, open, updateZoom],
+        [bindings, currentSong, navigate, open, updateZoom],
     );
 
     const modalProps = useMemo(
