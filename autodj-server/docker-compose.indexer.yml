@@ -1,0 +1,24 @@
+# AutoDJ incremental indexer (auto-ingest daemon). Deploy on stol:
+#   docker compose -f docker-compose.indexer.yml up -d
+# Reuses the crate-essentia image (model baked in). Polls beets, embeds new tracks,
+# purges removed ones, atomically swaps the index, and pings the recommender's /reload.
+services:
+  autodj-indexer:
+    image: crate-essentia
+    container_name: autodj-indexer
+    command: python3 /index/incremental_indexer.py
+    environment:
+      - AUTODJ_INDEX=/index
+      - BEETS_DB=/beets/musiclibrary.blb
+      - NAVIDROME_DB=/navidrome/navidrome.db
+      - RECOMMENDER_RELOAD_URL=http://host.docker.internal:8001/reload
+      - POLL_INTERVAL=60
+      - SETTLE_SECONDS=90
+    volumes:
+      - /home/stol/docker/crate/autodj-index:/index
+      - /mnt/storage/media/music:/music:ro
+      - /home/stol/docker/media/beets/musiclibrary.blb:/beets/musiclibrary.blb:ro
+      - /home/stol/docker/media/navidrome:/navidrome:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    restart: unless-stopped
