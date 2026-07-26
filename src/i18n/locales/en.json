@@ -731,6 +731,7 @@
         "repeat_other": "",
         "restoreQueueFromServer": "Restore queue from server",
         "saveQueueToServer": "Save queue to server",
+        "seedAutoDj": "Seed AutoDJ",
         "shuffle": "Play (shuffled)",
         "shuffle_off": "Shuffle disabled",
         "skip": "Skip",

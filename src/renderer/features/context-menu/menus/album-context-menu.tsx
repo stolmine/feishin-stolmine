@@ -7,6 +7,7 @@ import { GetInfoAction } from '/@/renderer/features/context-menu/actions/get-inf
 import { GoToAction } from '/@/renderer/features/context-menu/actions/go-to-action';
 import { PlayAction } from '/@/renderer/features/context-menu/actions/play-action';
 import { PlayAlbumRadioAction } from '/@/renderer/features/context-menu/actions/play-album-radio-action';
+import { SeedAutoDjAction } from '/@/renderer/features/context-menu/actions/seed-autodj-action';
 import { SetFavoriteAction } from '/@/renderer/features/context-menu/actions/set-favorite-action';
 import { SetRatingAction } from '/@/renderer/features/context-menu/actions/set-rating-action';
 import { ShareAction } from '/@/renderer/features/context-menu/actions/share-action';
@@ -31,6 +32,7 @@ export const AlbumContextMenu = ({ items, type }: AlbumContextMenuProps) => {
         >
             <PlayAction ids={ids} itemType={LibraryItem.ALBUM} />
             <PlayAlbumRadioAction album={items[0]} disabled={items.length > 1} />
+            <SeedAutoDjAction album={items[0]} disabled={items.length > 1} />
             <ContextMenu.Divider />
             <AddToPlaylistAction items={ids} itemType={LibraryItem.ALBUM} />
             <ContextMenu.Divider />

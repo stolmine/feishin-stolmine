@@ -5,6 +5,7 @@ import { DownloadAction } from '/@/renderer/features/context-menu/actions/downlo
 import { GetInfoAction } from '/@/renderer/features/context-menu/actions/get-info-action';
 import { PlayAction } from '/@/renderer/features/context-menu/actions/play-action';
 import { PlayArtistRadioAction } from '/@/renderer/features/context-menu/actions/play-artist-radio-action';
+import { SeedAutoDjAction } from '/@/renderer/features/context-menu/actions/seed-autodj-action';
 import { SetFavoriteAction } from '/@/renderer/features/context-menu/actions/set-favorite-action';
 import { SetRatingAction } from '/@/renderer/features/context-menu/actions/set-rating-action';
 import { ShareAction } from '/@/renderer/features/context-menu/actions/share-action';
@@ -29,6 +30,7 @@ export const ArtistContextMenu = ({ items, type }: ArtistContextMenuProps) => {
         >
             <PlayAction ids={ids} itemType={LibraryItem.ARTIST} />
             <PlayArtistRadioAction artist={items[0]} disabled={items.length > 1} />
+            <SeedAutoDjAction artist={items[0]} disabled={items.length > 1} />
             <ContextMenu.Divider />
             <AddToPlaylistAction items={ids} itemType={LibraryItem.ARTIST} />
             <ContextMenu.Divider />
