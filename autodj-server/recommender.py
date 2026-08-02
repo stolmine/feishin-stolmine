@@ -30,6 +30,17 @@ _S = {"loaded": False}
 _rng = np.random.default_rng()
 
 
+@app.after_request
+def _cors(resp):
+    # Feishin's renderer loads over file://, so it sends `Origin: null` and Chromium
+    # preflights the JSON POST. Without these the browser drops the response and axios
+    # reports a bare "Network Error". Tailnet-only service, no credentials -> "*" is fine.
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return resp
+
+
 def _parse_style(label):
     g, _, s = label.partition("---")           # "Electronic---Ambient" -> ("electronic","ambient")
     return g.lower(), (s or g).lower()
