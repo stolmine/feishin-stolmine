@@ -1,5 +1,5 @@
-import { QueueSong } from '/@/shared/types/domain-types';
-import { PlayerRepeat, PlayerStatus, SongState } from '/@/shared/types/types';
+import { LibraryItem, QueueSong, ServerListItemWithCredential } from '/@/shared/types/domain-types';
+import { Play, PlayerRepeat, PlayerStatus, SongState } from '/@/shared/types/types';
 
 export interface ClientAuth {
     event: 'authenticate';
@@ -10,6 +10,7 @@ export type ClientEvent =
     | ClientAuth
     | ClientFavorite
     | ClientPosition
+    | ClientQueueAdd
     | ClientRating
     | ClientSimpleEvent
     | ClientVolume;
@@ -23,6 +24,14 @@ export interface ClientFavorite {
 export interface ClientPosition {
     event: 'position';
     position: number;
+}
+
+export interface ClientQueueAdd {
+    event: 'queueAdd';
+    ids: string[];
+    itemType: LibraryItem;
+    playType: Play;
+    serverId: string;
 }
 
 export interface ClientRating {
@@ -39,12 +48,20 @@ export interface ClientVolume {
     volume: number;
 }
 
+export type RemoteServer = Omit<ServerListItemWithCredential, 'savePassword'>;
+
+export interface ServerCurrentServer {
+    data: null | RemoteServer;
+    event: 'server';
+}
+
 export interface ServerError {
     data: string;
     event: 'error';
 }
 
 export type ServerEvent =
+    | ServerCurrentServer
     | ServerError
     | ServerFavorite
     | ServerPlayStatus

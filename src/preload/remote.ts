@@ -1,7 +1,8 @@
 import { ipcRenderer } from 'electron';
 
-import { QueueSong } from '/@/shared/types/domain-types';
-import { PlayerStatus } from '/@/shared/types/types';
+import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
+import { RemoteServer } from '/@/shared/types/remote-types';
+import { Play, PlayerStatus } from '/@/shared/types/types';
 
 const requestFavorite = (
     cb: (data: { favorite: boolean; id: string; serverId: string }) => void,
@@ -11,6 +12,12 @@ const requestFavorite = (
 
 const requestPosition = (cb: (data: { position: number }) => void) => {
     ipcRenderer.on('request-position', (_, data) => cb(data));
+};
+
+const requestQueueAdd = (
+    cb: (data: { ids: string[]; itemType: LibraryItem; playType: Play; serverId: string }) => void,
+) => {
+    ipcRenderer.on('request-queue-add', (_, data) => cb(data));
 };
 
 const requestRating = (cb: (data: { id: string; rating: number; serverId: string }) => void) => {
@@ -64,6 +71,10 @@ const updateRepeat = (repeat: string) => {
     ipcRenderer.send('update-repeat', repeat);
 };
 
+const updateServer = (server: null | RemoteServer) => {
+    ipcRenderer.send('update-server', server);
+};
+
 const updateShuffle = (shuffle: boolean) => {
     ipcRenderer.send('update-shuffle', shuffle);
 };
@@ -87,6 +98,7 @@ const updatePosition = (timeSec: number) => {
 export const remote = {
     requestFavorite,
     requestPosition,
+    requestQueueAdd,
     requestRating,
     requestSeek,
     requestVolume,
@@ -98,6 +110,7 @@ export const remote = {
     updatePosition,
     updateRating,
     updateRepeat,
+    updateServer,
     updateSetting,
     updateShuffle,
     updateSong,

@@ -3,6 +3,7 @@ import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { createWithEqualityFn } from 'zustand/traditional';
 
+import { useAuthStore } from '/@/renderer/store/auth.store';
 import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
 import { ClientEvent, ServerEvent, SongUpdateSocket } from '/@/shared/types/remote-types';
@@ -18,6 +19,7 @@ export interface SettingsSlice extends SettingsState {
 
 interface SettingsState {
     connected: boolean;
+    hasLibraryAccess: boolean;
     info: Omit<SongUpdateSocket, 'currentTime'>;
     isDark: boolean;
     showImage: boolean;
@@ -30,6 +32,7 @@ interface StatefulWebSocket extends WebSocket {
 
 const initialState: SettingsState = {
     connected: false,
+    hasLibraryAccess: false,
     info: {},
     isDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
     showImage: true,
@@ -140,6 +143,29 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                         logger.debug('Repeat event received', { repeat: data });
                                         set((state) => {
                                             state.info.repeat = data;
+                                        });
+                                        break;
+                                    }
+                                    case 'server': {
+                                        logger.debug('Server event received', {
+                                            hasServer: !!data,
+                                            id: data?.id,
+                                        });
+
+                                        const authActions = useAuthStore.getState().actions;
+
+                                        if (data) {
+                                            authActions.addServer({ ...data, savePassword: false });
+                                            authActions.setCurrentServer({
+                                                ...data,
+                                                savePassword: false,
+                                            });
+                                        } else {
+                                            authActions.setCurrentServer(null);
+                                        }
+
+                                        set((state) => {
+                                            state.hasLibraryAccess = !!data;
                                         });
                                         break;
                                     }

@@ -13,7 +13,7 @@ import { isLinux } from '/@/main/env';
 import { getMainWindow } from '/@/main/index';
 import log from '/@/main/logger';
 import { QueueSong } from '/@/shared/types/domain-types';
-import { ClientEvent, ServerEvent } from '/@/shared/types/remote-types';
+import { ClientEvent, RemoteServer, ServerEvent } from '/@/shared/types/remote-types';
 import { PlayerRepeat, PlayerStatus, SongState } from '/@/shared/types/types';
 
 let mprisPlayer: any | undefined;
@@ -113,6 +113,7 @@ const GZIP_REGEX = /\bgzip\b/;
 const ZLIB_REGEX = /bdeflate\b/;
 
 const currentState: SongState = {};
+let currentServer: null | RemoteServer = null;
 
 const getEncoding = (encoding: string | string[]): Encoding => {
     const encodingArray = Array.isArray(encoding) ? encoding : [encoding];
@@ -142,6 +143,10 @@ function authorize(req: IncomingMessage): boolean {
     }
 
     return true;
+}
+
+function isRemoteGateConfigured(): boolean {
+    return Boolean(settings.username || settings.password);
 }
 
 async function serveFile(
@@ -464,6 +469,16 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
 
                                 break;
                             }
+                            case 'queueAdd': {
+                                const { ids, itemType, playType, serverId } = json;
+                                getMainWindow()?.webContents.send('request-queue-add', {
+                                    ids,
+                                    itemType,
+                                    playType,
+                                    serverId,
+                                });
+                                break;
+                            }
                             case 'rating': {
                                 const { id, rating } = json;
                                 if (id && id === currentState.song?.id) {
@@ -524,6 +539,12 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
                 });
 
                 ws.send(JSON.stringify({ data: currentState, event: 'state' }));
+                ws.send(
+                    JSON.stringify({
+                        data: isRemoteGateConfigured() ? currentServer : null,
+                        event: 'server',
+                    }),
+                );
             });
 
             const heartBeat = setInterval(() => {
@@ -657,6 +678,11 @@ ipcMain.on('update-song', (_event, song: QueueSong | undefined, imageUrl?: null 
     if (songChanged) {
         broadcast({ data: song || null, event: 'song' });
     }
+});
+
+ipcMain.on('update-server', (_event, server: null | RemoteServer) => {
+    currentServer = server;
+    broadcast({ data: isRemoteGateConfigured() ? currentServer : null, event: 'server' });
 });
 
 ipcMain.on('update-volume', (_event, volume: number) => {

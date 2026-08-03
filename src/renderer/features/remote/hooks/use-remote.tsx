@@ -3,13 +3,16 @@ import { useEffect, useRef } from 'react';
 
 import { getItemImageUrl } from '/@/renderer/components/item-image/item-image';
 import { usePlayerEvents } from '/@/renderer/features/player/audio-player/hooks/use-player-events';
+import { usePlayer } from '/@/renderer/features/player/context/player-context';
 import { useSetRating } from '/@/renderer/features/shared/hooks/use-set-rating';
 import { useCreateFavorite } from '/@/renderer/features/shared/mutations/create-favorite-mutation';
 import { useDeleteFavorite } from '/@/renderer/features/shared/mutations/delete-favorite-mutation';
 import { usePlayerActions, usePlayerStore, useRemoteSettings } from '/@/renderer/store';
+import { useCurrentServerWithCredential } from '/@/renderer/store/auth.store';
 import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
 import { LibraryItem } from '/@/shared/types/domain-types';
+import { RemoteServer } from '/@/shared/types/remote-types';
 import { PlayerShuffle } from '/@/shared/types/types';
 
 const remote = isElectron() ? window.api.remote : null;
@@ -18,11 +21,13 @@ const ipc = isElectron() ? window.api.ipc : null;
 export const useRemote = () => {
     const { mediaSkipForward, setVolume } = usePlayerActions();
     const player = usePlayerStore();
+    const playerContext = usePlayer();
 
     const remoteSettings = useRemoteSettings();
     const setRating = useSetRating();
     const addToFavoritesMutation = useCreateFavorite({});
     const removeFromFavoritesMutation = useDeleteFavorite({});
+    const currentServer = useCurrentServerWithCredential();
 
     const isRemoteEnabled = remoteSettings.enabled;
 
@@ -98,18 +103,30 @@ export const useRemote = () => {
             });
         });
 
+        remote.requestQueueAdd((data) => {
+            logger.debug('Request queue add received', {
+                ids: data.ids,
+                itemType: data.itemType,
+                playType: data.playType,
+                serverId: data.serverId,
+            });
+            playerContext.addToQueueByFetch(data.serverId, data.ids, data.itemType, data.playType);
+        });
+
         return () => {
             ipc?.removeAllListeners('request-position');
             ipc?.removeAllListeners('request-seek');
             ipc?.removeAllListeners('request-volume');
             ipc?.removeAllListeners('request-favorite');
             ipc?.removeAllListeners('request-rating');
+            ipc?.removeAllListeners('request-queue-add');
         };
     }, [
         addToFavoritesMutation,
         isRemoteEnabled,
         mediaSkipForward,
         player,
+        playerContext,
         removeFromFavoritesMutation,
         setVolume,
         setRating,
@@ -146,6 +163,40 @@ export const useRemote = () => {
             remote.updateSong(currentSong, imageUrl);
         }
     }, [isRemoteEnabled, player]);
+
+    // Push the current server (with credentials) on connect and whenever it changes
+    useEffect(() => {
+        if (!isRemoteEnabled || !remote) {
+            return;
+        }
+
+        if (!currentServer) {
+            logger.debug('Sending null server');
+            remote.updateServer(null);
+            return;
+        }
+
+        const server: RemoteServer = {
+            credential: currentServer.credential,
+            features: currentServer.features,
+            id: currentServer.id,
+            isAdmin: currentServer.isAdmin,
+            musicFolderId: currentServer.musicFolderId,
+            name: currentServer.name,
+            ndCredential: currentServer.ndCredential,
+            preferInstantMix: currentServer.preferInstantMix,
+            preferRemoteUrl: currentServer.preferRemoteUrl,
+            remoteUrl: currentServer.remoteUrl,
+            type: currentServer.type,
+            url: currentServer.url,
+            userId: currentServer.userId,
+            username: currentServer.username,
+            version: currentServer.version,
+        };
+
+        logger.debug('Sending current server', { id: server.id, name: server.name });
+        remote.updateServer(server);
+    }, [currentServer, isRemoteEnabled]);
 
     usePlayerEvents(
         {
