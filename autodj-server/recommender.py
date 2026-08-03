@@ -99,22 +99,28 @@ def knobs(alpha):
     Picks are then ranked by closeness to that target, not by raw similarity.
     """
     a = max(0.0, min(1.0, alpha))
+    # Back-loaded contrast response: coherence/similarity occupies most of the slider's
+    # throw and divergence is clustered at the high end. `div = a**CONTRAST_P` (P>1) stays
+    # near 0 across the lower/mid slider, then ramps sharply near 1. Raise CONTRAST_P to
+    # keep even more of the slider tight (divergence squeezed further toward 1.0).
+    CONTRAST_P = 3.0
+    div = a ** CONTRAST_P
+    t_max, t_min = 0.90, 0.10
     return dict(
-        target=0.90 - 0.80 * a,     # desired cosine-to-centroid: 0.90 hug → 0.10 max-difference
-        overfetch=int(6 + 12 * a),  # candidate pool multiple (wider net toward difference)
-        lam=0.85 - 0.35 * a,        # MMR relevance vs intra-batch diversity
-        temp=0.04 + 0.30 * a,       # selection temperature (more sampling toward difference)
-        decay=0.60 + 0.30 * a,      # centroid recency decay
+        target=t_max - (t_max - t_min) * div,  # cosine-to-centroid: 0.90 hug (most of throw) → 0.10 max-diff
+        overfetch=int(6 + 12 * div),  # candidate pool multiple
+        lam=0.85 - 0.35 * div,        # MMR relevance vs intra-batch diversity
+        temp=0.04 + 0.30 * div,       # selection temperature
+        decay=0.60 + 0.30 * div,      # centroid recency decay
         # "aspect" bonuses (smooth transition, genre/tempo/era continuity) reward sameness,
-        # so they fade to 0 as contrast goes for difference.
-        w_last=0.35 * (1 - a),
-        w_genre=0.25 * (1 - a),
-        w_bpm=0.12 * (1 - a),
-        w_year=0.06 * (1 - a),
-        # artist/album variety scales WITH contrast: hugging allows several from one artist
-        # (that IS the vibe); max difference forces distinct artists/albums.
-        artist_cap=3 if a < 0.34 else (2 if a < 0.67 else 1),
-        album_cap=2 if a < 0.34 else 1,
+        # so they fade toward difference along the same back-loaded curve.
+        w_last=0.35 * (1 - div),
+        w_genre=0.25 * (1 - div),
+        w_bpm=0.12 * (1 - div),
+        w_year=0.06 * (1 - div),
+        # artist/album variety only kicks in at the divergent high end.
+        artist_cap=3 if div < 0.34 else (2 if div < 0.67 else 1),
+        album_cap=2 if div < 0.34 else 1,
         w_recent_artist=0.40, w_recent_album=0.50,
     )
 
