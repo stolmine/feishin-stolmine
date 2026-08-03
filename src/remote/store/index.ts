@@ -8,10 +8,15 @@ import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
 import { ClientEvent, ServerEvent, SongUpdateSocket } from '/@/shared/types/remote-types';
 
+export type RemoteListDisplay = 'grid' | 'list';
+
+export type RemoteListKey = 'album' | 'artist' | 'library' | 'playlist';
+
 export interface SettingsSlice extends SettingsState {
     actions: {
         reconnect: () => void;
         send: (data: ClientEvent) => void;
+        setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => void;
         toggleIsDark: () => void;
         toggleShowImage: () => void;
     };
@@ -22,6 +27,7 @@ interface SettingsState {
     hasLibraryAccess: boolean;
     info: Omit<SongUpdateSocket, 'currentTime'>;
     isDark: boolean;
+    lists: Record<RemoteListKey, { display: RemoteListDisplay }>;
     showImage: boolean;
     socket?: StatefulWebSocket;
 }
@@ -35,6 +41,12 @@ const initialState: SettingsState = {
     hasLibraryAccess: false,
     info: {},
     isDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+    lists: {
+        album: { display: 'grid' },
+        artist: { display: 'grid' },
+        library: { display: 'list' },
+        playlist: { display: 'grid' },
+    },
     showImage: true,
 };
 
@@ -277,6 +289,11 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                             });
                         }
                     },
+                    setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => {
+                        set((state) => {
+                            state.lists[key].display = display;
+                        });
+                    },
                     toggleIsDark: () => {
                         set((state) => {
                             state.isDark = !state.isDark;
@@ -295,18 +312,25 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
         {
             merge: (persistedState, currentState) => merge(currentState, persistedState),
             name: 'store_settings',
-            version: 7,
+            version: 8,
         },
     ),
 );
 
 export const useConnected = () => useRemoteStore((state) => state.connected);
 
+export const useHasLibraryAccess = () => useRemoteStore((state) => state.hasLibraryAccess);
+
 export const useInfo = () => useRemoteStore((state) => state.info);
 
 export const useIsDark = () => useRemoteStore((state) => state.isDark);
 
 export const useReconnect = () => useRemoteStore((state) => state.actions.reconnect);
+
+export const useRemoteListDisplay = (key: RemoteListKey) =>
+    useRemoteStore((state) => state.lists[key].display);
+
+export const useSetListDisplay = () => useRemoteStore((state) => state.actions.setListDisplay);
 
 export const useShowImage = () => useRemoteStore((state) => state.showImage);
 

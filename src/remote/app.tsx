@@ -4,9 +4,12 @@ import '@mantine/notifications/styles.css';
 
 import '/@/shared/styles/global.css';
 
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { RouterProvider } from 'react-router';
 
-import { Shell } from '/@/remote/components/shell';
+import { queryClient } from '/@/remote/lib/query-client';
+import { router } from '/@/remote/router';
 import { useIsDark, useReconnect } from '/@/remote/store';
 import { useAppTheme } from '/@/renderer/themes/use-app-theme';
 import { AppTheme } from '/@/shared/themes/app-theme-types';
@@ -22,8 +25,10 @@ export const App = () => {
     const { mode, theme } = useAppTheme(isDark ? AppTheme.DEFAULT_DARK : AppTheme.DEFAULT_LIGHT);
 
     return (
-        <MantineProvider defaultColorScheme={mode} theme={theme}>
-            <Shell />
-        </MantineProvider>
+        <QueryClientProvider client={queryClient}>
+            <MantineProvider defaultColorScheme={mode} theme={theme}>
+                <RouterProvider router={router} />
+            </MantineProvider>
+        </QueryClientProvider>
     );
 };
