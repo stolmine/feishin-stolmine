@@ -90,20 +90,31 @@ def load():
 
 
 def knobs(alpha):
-    """Map the single contrast slider (0=consistency, 1=variety) onto every knob."""
+    """Map the single contrast knob onto every setting.
+
+    0 = hug the current track's character (pick the *most* similar);
+    1 = maximum difference (pick the *most dissimilar* that still passes the filters).
+    The heart of it is `target`: the desired cosine of a pick to the session centroid,
+    sliding from ~0.90 (hug tightly) down to ~0.10 (as different as the library allows).
+    Picks are then ranked by closeness to that target, not by raw similarity.
+    """
     a = max(0.0, min(1.0, alpha))
     return dict(
-        lam=0.90 - 0.50 * a,        # MMR relevance weight (high → hug the vibe)
-        temp=0.02 + 0.60 * a,       # selection temperature (0 → greedy)
-        overfetch=int(8 + 24 * a),  # candidate pool multiple
-        floor=0.55 - 0.35 * a,      # min cosine-to-centroid (relax with variety)
-        decay=0.60 + 0.30 * a,      # centroid recency decay (drifts faster with variety)
-        w_last=0.50 - 0.30 * a,     # weight on smooth transition from the last track
-        w_genre=0.30, w_bpm=0.15, w_year=0.10,
-        # per-batch caps + recency penalties space tracks out by artist AND album, both
-        # within the batch and relative to what is already in the queue.
-        artist_cap=1 if a < 0.34 else (2 if a < 0.67 else 3),
-        album_cap=1 if a < 0.34 else (2 if a < 0.67 else 3),
+        target=0.90 - 0.80 * a,     # desired cosine-to-centroid: 0.90 hug → 0.10 max-difference
+        overfetch=int(6 + 12 * a),  # candidate pool multiple (wider net toward difference)
+        lam=0.85 - 0.35 * a,        # MMR relevance vs intra-batch diversity
+        temp=0.04 + 0.30 * a,       # selection temperature (more sampling toward difference)
+        decay=0.60 + 0.30 * a,      # centroid recency decay
+        # "aspect" bonuses (smooth transition, genre/tempo/era continuity) reward sameness,
+        # so they fade to 0 as contrast goes for difference.
+        w_last=0.35 * (1 - a),
+        w_genre=0.25 * (1 - a),
+        w_bpm=0.12 * (1 - a),
+        w_year=0.06 * (1 - a),
+        # artist/album variety scales WITH contrast: hugging allows several from one artist
+        # (that IS the vibe); max difference forces distinct artists/albums.
+        artist_cap=3 if a < 0.34 else (2 if a < 0.67 else 1),
+        album_cap=2 if a < 0.34 else 1,
         w_recent_artist=0.40, w_recent_album=0.50,
     )
 
@@ -244,12 +255,12 @@ def session_next():
         print("[session/next] -> 0 tracks (no candidates after filters)", flush=True)
         return jsonify(tracks=[], debug={"reason": "no candidates after filters"})
     idx = np.nonzero(mask)[0]
-    sims = E[idx] @ c
-    keep = sims >= K["floor"]                     # cosine floor (relaxes with variety)
-    if int(keep.sum()) >= count:
-        idx, sims = idx[keep], sims[keep]
+    cos_all = E[idx] @ c
+    # rank by closeness to the target similarity: contrast 0 → nearest the seed,
+    # contrast 1 → nearest the far (max-difference) end.
+    pre = -np.abs(cos_all - K["target"])
     M = min(len(idx), max(count * K["overfetch"], count * 4))
-    top = np.argsort(sims)[::-1][:M]
+    top = np.argsort(pre)[::-1][:M]
     cand = idx[top]
 
     # rerank features over the candidate pool
@@ -267,8 +278,8 @@ def session_next():
     seen_alb = {S["album"][r] for r in seen_rows if S["album"][r]}
     art_pen = np.array([K["w_recent_artist"] if S["artist"][r] in seen_art else 0.0 for r in cand])
     alb_pen = np.array([K["w_recent_album"] if S["album"][r] in seen_alb else 0.0 for r in cand])
-    rel = (cos_c + K["w_last"] * cos_last + K["w_genre"] * g_ov + K["w_bpm"] * bpm_c
-           + K["w_year"] * yr - art_pen - alb_pen)
+    rel = (-np.abs(cos_c - K["target"]) + K["w_last"] * cos_last + K["w_genre"] * g_ov
+           + K["w_bpm"] * bpm_c + K["w_year"] * yr - art_pen - alb_pen)
 
     # MMR + temperature selection with a per-batch artist cap
     selected, sel_rows, art_count, alb_count = [], [], {}, {}
