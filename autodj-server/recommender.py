@@ -103,7 +103,7 @@ def knobs(alpha):
     # throw and divergence is clustered at the high end. `div = a**CONTRAST_P` (P>1) stays
     # near 0 across the lower/mid slider, then ramps sharply near 1. Raise CONTRAST_P to
     # keep even more of the slider tight (divergence squeezed further toward 1.0).
-    CONTRAST_P = 3.0
+    CONTRAST_P = 2.0
     div = a ** CONTRAST_P
     t_max, t_min = 0.90, 0.10
     return dict(
