@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface ListPage<TItem> {
     items: TItem[];
@@ -81,6 +81,17 @@ export const useRemoteInfiniteList = <TItem>({
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [pageSize, version],
     );
+
+    // When the query identity changes (server / sort / filter), the cached
+    // pages belong to the OLD query — drop them, then eagerly prefetch page 0
+    // so the first screen loads in parallel with the (often slower) count
+    // query instead of waiting for it to resolve first.
+    useEffect(() => {
+        pagesRef.current = new Map();
+        inFlightRef.current = new Set();
+        setVersion((v) => v + 1);
+        void fetchPage(0);
+    }, [fetchPage]);
 
     const ensureRange = useCallback(
         (startIndex: number, stopIndex: number) => {

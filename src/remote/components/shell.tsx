@@ -13,8 +13,14 @@ export const Shell = () => {
             </AppShell.Header>
             <AppShell.Main
                 style={{
+                    boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',
+                    // Bound the main region to the viewport so each tab's virtualized
+                    // list establishes its OWN internal scroll region instead of the
+                    // page body growing unbounded (which made lists unscrollable).
+                    height: '100dvh',
+                    overflow: 'hidden',
                     paddingBottom: 'calc(56px + env(safe-area-inset-bottom))',
                     paddingTop: '60px',
                 }}

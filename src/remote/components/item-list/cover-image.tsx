@@ -13,7 +13,10 @@ interface CoverImageProps {
     size?: number;
 }
 
-const REQUEST_SIZE_FALLBACK_PX = 300;
+// Grid cards omit an explicit size and fill their column; request a modest
+// retina-adequate thumbnail rather than full-size art to cut first-paint
+// bandwidth over the phone's wifi link.
+const REQUEST_SIZE_FALLBACK_PX = 256;
 
 export const CoverImage = ({
     alt = '',
