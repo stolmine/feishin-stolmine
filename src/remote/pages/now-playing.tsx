@@ -1,11 +1,14 @@
 import { RiPlayListLine } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
+import { PageHeader } from '/@/remote/components/page-header';
 import { RemoteContainer } from '/@/remote/components/remote-container';
 import { useConnected } from '/@/remote/store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Center } from '/@/shared/components/center/center';
+import { Flex } from '/@/shared/components/flex/flex';
 import { Spinner } from '/@/shared/components/spinner/spinner';
+import { Text } from '/@/shared/components/text/text';
 
 export const NowPlayingPage = () => {
     const connected = useConnected();
@@ -20,16 +23,31 @@ export const NowPlayingPage = () => {
     }
 
     return (
-        <div style={{ height: '100%', position: 'relative', width: '100%' }}>
-            <ActionIcon
-                onClick={() => navigate('/queue')}
-                style={{ position: 'absolute', right: 8, top: 8, zIndex: 1 }}
-                tooltip={{ label: 'Queue' }}
-                variant="transparent"
+        <Flex direction="column" h="100%" w="100%">
+            <PageHeader
+                actions={
+                    <ActionIcon
+                        onClick={() => navigate('/queue')}
+                        size="md"
+                        tooltip={{ label: 'Queue' }}
+                        variant="subtle"
+                    >
+                        <RiPlayListLine size={22} />
+                    </ActionIcon>
+                }
             >
-                <RiPlayListLine size={22} />
-            </ActionIcon>
-            <RemoteContainer />
-        </div>
+                <Text
+                    fw={600}
+                    isMuted
+                    size="xs"
+                    style={{ letterSpacing: '0.14em', textTransform: 'uppercase' }}
+                >
+                    Now Playing
+                </Text>
+            </PageHeader>
+            <div style={{ flex: 1, minHeight: 0 }}>
+                <RemoteContainer />
+            </div>
+        </Flex>
     );
 };

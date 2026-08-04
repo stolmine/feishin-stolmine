@@ -36,7 +36,7 @@ export const SortControl = ({ onChange, options, sortBy, sortOrder }: SortContro
         <>
             <DropdownMenu position="bottom-end">
                 <DropdownMenu.Target>
-                    <ActionIcon aria-label="Sort by" variant="default">
+                    <ActionIcon aria-label="Sort by" size="md" variant="default">
                         <RiListUnordered size={20} />
                     </ActionIcon>
                 </DropdownMenu.Target>
@@ -58,6 +58,7 @@ export const SortControl = ({ onChange, options, sortBy, sortOrder }: SortContro
             <ActionIcon
                 aria-label={sortOrder === SortOrder.ASC ? 'Sort ascending' : 'Sort descending'}
                 onClick={handleToggleOrder}
+                size="md"
                 variant="default"
             >
                 {sortOrder === SortOrder.ASC ? <RiSortAsc size={20} /> : <RiSortDesc size={20} />}

@@ -3,6 +3,7 @@ import { RiArrowLeftLine, RiDeleteBinLine, RiPlayFill, RiShuffleLine } from 'rea
 import { useNavigate } from 'react-router';
 
 import { ActionItem, ActionSheet } from '/@/remote/components/action-sheet';
+import { PageHeader } from '/@/remote/components/page-header';
 import { QUEUE_ROW_HEIGHT, QueueRow } from '/@/remote/components/queue/queue-row';
 import { useConnected, useQueue, useQueueActions, useRemoteStore } from '/@/remote/store';
 import { useCurrentServerId } from '/@/renderer/store/auth.store';
@@ -242,27 +243,41 @@ export const QueuePage = () => {
 
     return (
         <Flex direction="column" h="100%" w="100%">
-            <Group justify="space-between" p="md" wrap="nowrap">
+            <PageHeader
+                actions={
+                    <ActionIcon
+                        disabled={entries.length === 0}
+                        onClick={() => setConfirmClear(true)}
+                        size="md"
+                        tooltip={{ label: 'Clear queue' }}
+                        variant="subtle"
+                    >
+                        <RiDeleteBinLine size={20} />
+                    </ActionIcon>
+                }
+            >
                 <Group gap="xs" wrap="nowrap">
-                    <ActionIcon onClick={() => navigate(-1)} variant="transparent">
+                    <ActionIcon onClick={() => navigate(-1)} size="md" variant="subtle">
                         <RiArrowLeftLine size={22} />
                     </ActionIcon>
-                    <Text fw={700} size="lg">
+                    <Text
+                        fw={700}
+                        style={{
+                            fontSize: '1.5rem',
+                            letterSpacing: '-0.02em',
+                            lineHeight: 1.2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
                         Queue
                     </Text>
                     {queue.shuffle && (
                         <RiShuffleLine color="var(--theme-colors-primary)" size={18} />
                     )}
                 </Group>
-                <ActionIcon
-                    disabled={entries.length === 0}
-                    onClick={() => setConfirmClear(true)}
-                    tooltip={{ label: 'Clear queue' }}
-                    variant="transparent"
-                >
-                    <RiDeleteBinLine size={20} />
-                </ActionIcon>
-            </Group>
+            </PageHeader>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                 {entries.length === 0 ? (
                     <Center h="100%" w="100%">

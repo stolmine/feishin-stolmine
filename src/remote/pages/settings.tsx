@@ -1,6 +1,9 @@
+import { ReactNode } from 'react';
+
 import { ImageButton } from '/@/remote/components/buttons/image-button';
 import { ReconnectButton } from '/@/remote/components/buttons/reconnect-button';
 import { ThemeButton } from '/@/remote/components/buttons/theme-button';
+import { PageHeader } from '/@/remote/components/page-header';
 import {
     RemoteListDisplay,
     RemoteListKey,
@@ -9,6 +12,7 @@ import {
     useRemoteListDisplay,
     useSetListDisplay,
 } from '/@/remote/store';
+import { Flex } from '/@/shared/components/flex/flex';
 import { Group } from '/@/shared/components/group/group';
 import { SegmentedControl } from '/@/shared/components/segmented-control/segmented-control';
 import { Stack } from '/@/shared/components/stack/stack';
@@ -42,45 +46,65 @@ const ListDisplayRow = ({ label, listKey }: { label: string; listKey: RemoteList
     );
 };
 
+const SettingsSection = ({ children, title }: { children: ReactNode; title: string }) => {
+    return (
+        <Stack gap="xs">
+            <Text
+                fw={600}
+                isMuted
+                size="xs"
+                style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}
+            >
+                {title}
+            </Text>
+            <Stack
+                gap="sm"
+                p="md"
+                style={{
+                    background: 'var(--theme-colors-surface)',
+                    border: '1px solid var(--theme-colors-border)',
+                    borderRadius: 'var(--theme-radius-md)',
+                }}
+            >
+                {children}
+            </Stack>
+        </Stack>
+    );
+};
+
 export const SettingsPage = () => {
     const connected = useConnected();
     const hasLibraryAccess = useHasLibraryAccess();
 
     return (
-        <Stack gap="lg" p="md">
-            <Stack gap="xs">
-                <Text fw={700} size="lg">
-                    Connection
-                </Text>
-                <Group justify="space-between">
-                    <Text isMuted>Status</Text>
-                    <Text>{connected ? 'Connected' : 'Disconnected'}</Text>
-                </Group>
-                <Group justify="space-between">
-                    <Text isMuted>Library access</Text>
-                    <Text>{hasLibraryAccess ? 'Available' : 'Unavailable'}</Text>
-                </Group>
-            </Stack>
+        <Flex direction="column" h="100%" w="100%">
+            <PageHeader title="Settings" />
+            <Stack gap="lg" pb="lg" px="md" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                <SettingsSection title="Connection">
+                    <Group justify="space-between">
+                        <Text isMuted>Status</Text>
+                        <Text>{connected ? 'Connected' : 'Disconnected'}</Text>
+                    </Group>
+                    <Group justify="space-between">
+                        <Text isMuted>Library access</Text>
+                        <Text>{hasLibraryAccess ? 'Available' : 'Unavailable'}</Text>
+                    </Group>
+                </SettingsSection>
 
-            <Stack gap="xs">
-                <Text fw={700} size="lg">
-                    Display
-                </Text>
-                <Group gap="sm">
-                    <ThemeButton />
-                    <ImageButton />
-                    <ReconnectButton />
-                </Group>
-            </Stack>
+                <SettingsSection title="Display">
+                    <Group gap="sm">
+                        <ThemeButton />
+                        <ImageButton />
+                        <ReconnectButton />
+                    </Group>
+                </SettingsSection>
 
-            <Stack gap="xs">
-                <Text fw={700} size="lg">
-                    Browse tab layout
-                </Text>
-                {listKeys.map(({ key, label }) => (
-                    <ListDisplayRow key={key} label={label} listKey={key} />
-                ))}
+                <SettingsSection title="Browse tab layout">
+                    {listKeys.map(({ key, label }) => (
+                        <ListDisplayRow key={key} label={label} listKey={key} />
+                    ))}
+                </SettingsSection>
             </Stack>
-        </Stack>
+        </Flex>
     );
 };

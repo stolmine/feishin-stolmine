@@ -12,6 +12,7 @@ import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index'
 import { useLongPress } from '/@/remote/components/item-list/use-long-press';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
+import { PageHeader } from '/@/remote/components/page-header';
 import { SortControl } from '/@/remote/components/sort-control';
 import { useHasLibraryAccess, useListSort, useSend, useSetSort } from '/@/remote/store';
 import { getEffectiveSort, getSongSortOptions } from '/@/remote/utils/sort-options';
@@ -102,7 +103,7 @@ const SearchResultRow = ({
                 cursor: 'pointer',
                 display: 'flex',
                 gap: 12,
-                padding: '8px 12px',
+                padding: '8px 16px',
                 touchAction: 'pan-y',
                 userSelect: 'none',
                 WebkitTouchCallout: 'none',
@@ -301,20 +302,18 @@ export const LibraryPage = () => {
 
     return (
         <Flex direction="column" h="100%" w="100%">
-            <Stack gap="sm" px="md" py="sm">
-                <Flex align="center" justify="space-between">
-                    <Text fw={700} size="lg">
-                        Library
-                    </Text>
-                    <Flex align="center" gap="xs">
-                        <SortControl
-                            onChange={(next) => setSort('library', next)}
-                            options={sortOptions}
-                            sortBy={effectiveSort.sortBy}
-                            sortOrder={effectiveSort.sortOrder}
-                        />
-                    </Flex>
-                </Flex>
+            <PageHeader
+                actions={
+                    <SortControl
+                        onChange={(next) => setSort('library', next)}
+                        options={sortOptions}
+                        sortBy={effectiveSort.sortBy}
+                        sortOrder={effectiveSort.sortOrder}
+                    />
+                }
+                title="Library"
+            />
+            <Stack gap="sm" pb="sm" px="md" style={{ flexShrink: 0 }}>
                 <TextInput
                     onChange={(event) => setSearchInput(event.currentTarget.value)}
                     placeholder="Search songs, albums, artists"

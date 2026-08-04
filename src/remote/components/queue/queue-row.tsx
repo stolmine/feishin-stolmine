@@ -66,7 +66,7 @@ export const QueueRow = memo(function QueueRow({
                 display: 'flex',
                 gap: 4,
                 height: QUEUE_ROW_HEIGHT,
-                padding: '0 4px 0 12px',
+                padding: '0 8px 0 16px',
                 position: 'relative',
                 transform: isDragging ? `translateY(${dragOffsetY ?? 0}px)` : undefined,
                 zIndex: isDragging ? 2 : undefined,

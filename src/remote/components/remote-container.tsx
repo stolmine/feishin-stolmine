@@ -1,6 +1,6 @@
 import formatDuration from 'format-duration';
 import debounce from 'lodash/debounce';
-import { useCallback } from 'react';
+import { CSSProperties, useCallback } from 'react';
 import { RiPauseFill, RiPlayFill, RiVolumeUpFill } from 'react-icons/ri';
 
 import { PlayerImage } from '/@/remote/components/player-image';
@@ -14,6 +14,12 @@ import { Stack } from '/@/shared/components/stack/stack';
 import { Text } from '/@/shared/components/text/text';
 import { Tooltip } from '/@/shared/components/tooltip/tooltip';
 import { PlayerRepeat, PlayerStatus } from '/@/shared/types/types';
+
+const ellipsis: CSSProperties = {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+};
 
 export const RemoteContainer = () => {
     const { position, repeat, shuffle, song, status, volume } = useInfo();
@@ -32,96 +38,108 @@ export const RemoteContainer = () => {
     const debouncedSetRating = debounce(setRating, 400);
 
     return (
-        <Stack gap="md" h="100dvh" w="100%">
-            {showImage && (
-                <Flex align="center" justify="center" w="100%">
+        <Stack gap="md" h="100%" px="lg" py="sm" style={{ overflow: 'hidden' }} w="100%">
+            {showImage ? (
+                <Flex
+                    align="center"
+                    justify="center"
+                    py="xs"
+                    style={{ flex: '1 1 0', minHeight: 0 }}
+                    w="100%"
+                >
                     <PlayerImage src={song?.imageUrl} />
                 </Flex>
+            ) : (
+                <div style={{ flex: '1 1 0' }} />
             )}
             {id && (
-                <Stack gap="xs">
+                <Stack gap={4} px="sm" style={{ flexShrink: 0 }} w="100%">
                     <Text
                         fw={700}
-                        size="xl"
-                        style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
+                        style={{ ...ellipsis, fontSize: '1.375rem', lineHeight: 1.3 }}
+                        ta="center"
                     >
                         {song.name}
                     </Text>
-                    <Text
-                        isMuted
-                        style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        {song.album}
-                    </Text>
-                    <Text
-                        isMuted
-                        style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
+                    <Text fw={500} size="md" style={ellipsis} ta="center">
                         {song.artistName}
                     </Text>
-                    <Group justify="space-between">
+                    <Text isMuted size="sm" style={ellipsis} ta="center">
+                        {song.album}
+                    </Text>
+                    <Group gap={6} justify="center" mt={2} wrap="nowrap">
                         {song.releaseDate && (
-                            <Text isMuted>{new Date(song.releaseDate).toLocaleDateString()}</Text>
+                            <>
+                                <Text isMuted size="xs">
+                                    {new Date(song.releaseDate).toLocaleDateString()}
+                                </Text>
+                                <Text isMuted size="xs">
+                                    ·
+                                </Text>
+                            </>
                         )}
-                        <Text isMuted>Plays: {song.playCount}</Text>
+                        <Text isMuted size="xs">
+                            {song.playCount} plays
+                        </Text>
                     </Group>
                 </Stack>
             )}
-            <Group gap={0} grow>
+            <Group gap="sm" justify="center" style={{ flexShrink: 0 }} wrap="nowrap">
                 <ActionIcon
                     disabled={!id}
                     icon="favorite"
                     iconProps={{
                         fill: song?.userFavorite ? 'primary' : 'default',
+                        size: 'lg',
                     }}
                     onClick={() => {
                         if (!id) return;
 
                         send({ event: 'favorite', favorite: !song.userFavorite, id });
                     }}
+                    size="md"
                     tooltip={{
                         label: song?.userFavorite ? 'Unfavorite' : 'Favorite',
                     }}
-                    variant="transparent"
+                    variant="subtle"
                 />
                 {(song?._serverType === 'navidrome' || song?._serverType === 'subsonic') && (
-                    <div style={{ margin: 'auto' }}>
-                        <Tooltip label="Double click to clear" openDelay={1000}>
-                            <Rating
-                                onChange={debouncedSetRating}
-                                onDoubleClick={() => debouncedSetRating(0)}
-                                style={{ margin: 'auto' }}
-                                value={song.userRating ?? 0}
-                            />
-                        </Tooltip>
-                    </div>
+                    <Tooltip label="Double click to clear" openDelay={1000}>
+                        <Rating
+                            onChange={debouncedSetRating}
+                            onDoubleClick={() => debouncedSetRating(0)}
+                            value={song.userRating ?? 0}
+                        />
+                    </Tooltip>
                 )}
             </Group>
-            <Group gap="xs" grow>
+            <Group gap="sm" justify="center" style={{ flexShrink: 0 }} wrap="nowrap">
+                <ActionIcon
+                    icon="mediaShuffle"
+                    iconProps={{
+                        fill: shuffle ? 'primary' : 'default',
+                        size: 'lg',
+                    }}
+                    onClick={() => send({ event: 'shuffle' })}
+                    size="md"
+                    tooltip={{
+                        label: shuffle ? 'Shuffle tracks' : 'Shuffle disabled',
+                    }}
+                    variant="subtle"
+                />
                 <ActionIcon
                     disabled={!id}
                     icon="mediaPrevious"
                     iconProps={{
                         fill: 'default',
-                        size: 'lg',
+                        size: 'xl',
                     }}
                     onClick={() => send({ event: 'previous' })}
+                    size="lg"
                     tooltip={{
                         label: 'Previous track',
                     }}
-                    variant="default"
+                    variant="subtle"
                 />
                 <ActionIcon
                     disabled={!id}
@@ -132,15 +150,22 @@ export const RemoteContainer = () => {
                             send({ event: 'play' });
                         }
                     }}
+                    size={64}
+                    style={{
+                        backgroundColor: 'var(--theme-colors-foreground)',
+                        borderRadius: '50%',
+                        boxShadow: '0 6px 18px rgb(0 0 0 / 25%)',
+                        color: 'var(--theme-colors-background)',
+                    }}
                     tooltip={{
                         label: id && status === PlayerStatus.PLAYING ? 'Pause' : 'Play',
                     }}
-                    variant="default"
+                    variant="transparent"
                 >
                     {id && status === PlayerStatus.PLAYING ? (
-                        <RiPauseFill size={25} />
+                        <RiPauseFill size={30} />
                     ) : (
-                        <RiPlayFill size={25} />
+                        <RiPlayFill size={30} style={{ transform: 'translateX(2px)' }} />
                     )}
                 </ActionIcon>
                 <ActionIcon
@@ -148,27 +173,14 @@ export const RemoteContainer = () => {
                     icon="mediaNext"
                     iconProps={{
                         fill: 'default',
-                        size: 'lg',
+                        size: 'xl',
                     }}
                     onClick={() => send({ event: 'next' })}
+                    size="lg"
                     tooltip={{
                         label: 'Next track',
                     }}
-                    variant="default"
-                />
-            </Group>
-            <Group gap="xs" grow>
-                <ActionIcon
-                    icon="mediaShuffle"
-                    iconProps={{
-                        fill: shuffle ? 'primary' : 'default',
-                        size: 'lg',
-                    }}
-                    onClick={() => send({ event: 'shuffle' })}
-                    tooltip={{
-                        label: shuffle ? 'Shuffle tracks' : 'Shuffle disabled',
-                    }}
-                    variant="default"
+                    variant="subtle"
                 />
                 <ActionIcon
                     icon={
@@ -184,6 +196,7 @@ export const RemoteContainer = () => {
                         size: 'lg',
                     }}
                     onClick={() => send({ event: 'repeat' })}
+                    size="md"
                     tooltip={{
                         label: `Repeat ${
                             repeat === PlayerRepeat.ONE
@@ -193,10 +206,10 @@ export const RemoteContainer = () => {
                                   : 'none'
                         }`,
                     }}
-                    variant="default"
+                    variant="subtle"
                 />
             </Group>
-            <Stack gap="lg">
+            <Stack gap={6} pb="xs" style={{ flexShrink: 0 }} w="100%">
                 {id && position !== undefined && (
                     <WrappedSlider
                         label={(value) => formatDuration(value * 1e3)}

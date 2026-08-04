@@ -56,7 +56,7 @@ const RemoteListRow = memo(
                         alignItems: 'center',
                         display: 'flex',
                         gap: 12,
-                        padding: '0 12px',
+                        padding: '0 16px',
                     }}
                 >
                     <Skeleton height={48} width={48} />
@@ -79,7 +79,7 @@ const RemoteListRow = memo(
                     cursor: 'pointer',
                     display: 'flex',
                     gap: 12,
-                    padding: '0 12px',
+                    padding: '0 16px',
                     touchAction: 'pan-y',
                     userSelect: 'none',
                     WebkitTouchCallout: 'none',

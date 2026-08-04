@@ -11,6 +11,7 @@ import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types'
 import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
+import { PageHeader } from '/@/remote/components/page-header';
 import { SortControl } from '/@/remote/components/sort-control';
 import {
     useHasLibraryAccess,
@@ -166,31 +167,32 @@ export const PlaylistsPage = () => {
 
     return (
         <Flex direction="column" h="100%" w="100%">
-            <Flex align="center" justify="space-between" px="md" py="sm">
-                <Text fw={700} size="lg">
-                    Playlists
-                </Text>
-                <Flex align="center" gap="xs">
-                    <SortControl
-                        onChange={(next) => setSort('playlist', next)}
-                        options={sortOptions}
-                        sortBy={effectiveSort.sortBy}
-                        sortOrder={effectiveSort.sortOrder}
-                    />
-                    <ActionIcon
-                        onClick={() =>
-                            setListDisplay('playlist', display === 'grid' ? 'list' : 'grid')
-                        }
-                        variant="default"
-                    >
-                        {display === 'grid' ? (
-                            <RiListCheck2 size={20} />
-                        ) : (
-                            <RiLayoutGridLine size={20} />
-                        )}
-                    </ActionIcon>
-                </Flex>
-            </Flex>
+            <PageHeader
+                actions={
+                    <>
+                        <SortControl
+                            onChange={(next) => setSort('playlist', next)}
+                            options={sortOptions}
+                            sortBy={effectiveSort.sortBy}
+                            sortOrder={effectiveSort.sortOrder}
+                        />
+                        <ActionIcon
+                            onClick={() =>
+                                setListDisplay('playlist', display === 'grid' ? 'list' : 'grid')
+                            }
+                            size="md"
+                            variant="default"
+                        >
+                            {display === 'grid' ? (
+                                <RiListCheck2 size={20} />
+                            ) : (
+                                <RiLayoutGridLine size={20} />
+                            )}
+                        </ActionIcon>
+                    </>
+                }
+                title="Playlists"
+            />
             <Flex direction="row" style={{ flex: 1, minHeight: 0 }}>
                 <Flex direction="column" style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
                     {display === 'grid' ? (
