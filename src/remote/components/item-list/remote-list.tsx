@@ -126,6 +126,7 @@ export const RemoteList = ({
 
     useScrollRestoration({
         getElement: () => listRef.current?.element,
+        itemCount,
         ready: itemCount > 0,
         scrollKey,
     });

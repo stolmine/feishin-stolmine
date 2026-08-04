@@ -178,6 +178,7 @@ export const RemoteGrid = ({
 
     useScrollRestoration({
         getElement: () => listRef.current?.element,
+        itemCount,
         ready: width > 0 && itemCount > 0,
         scrollKey,
     });
