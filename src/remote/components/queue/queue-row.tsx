@@ -1,5 +1,5 @@
 import formatDuration from 'format-duration';
-import { PointerEvent, Ref } from 'react';
+import { memo, PointerEvent, Ref, useCallback } from 'react';
 import { RiDraggable, RiPlayFill } from 'react-icons/ri';
 
 import { CoverImage } from '/@/remote/components/item-list/cover-image';
@@ -16,23 +16,31 @@ export const QUEUE_ROW_HEIGHT = 64;
 interface QueueRowProps {
     dragOffsetY?: number;
     entry: RemoteQueueEntry;
+    index: number;
     isCurrent: boolean;
     isDragging?: boolean;
+    onDragLostPointerCapture: (event: PointerEvent<HTMLDivElement>) => void;
     onDragPointerCancel: (event: PointerEvent<HTMLDivElement>) => void;
-    onDragPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
+    onDragPointerDown: (
+        entry: RemoteQueueEntry,
+        index: number,
+        event: PointerEvent<HTMLDivElement>,
+    ) => void;
     onDragPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
     onDragPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
-    onLongPress: () => void;
-    onPress: () => void;
+    onLongPress: (entry: RemoteQueueEntry) => void;
+    onPress: (entry: RemoteQueueEntry) => void;
     rowRef?: Ref<HTMLDivElement>;
     serverId: string;
 }
 
-export const QueueRow = ({
+export const QueueRow = memo(function QueueRow({
     dragOffsetY,
     entry,
+    index,
     isCurrent,
     isDragging,
+    onDragLostPointerCapture,
     onDragPointerCancel,
     onDragPointerDown,
     onDragPointerMove,
@@ -41,8 +49,14 @@ export const QueueRow = ({
     onPress,
     rowRef,
     serverId,
-}: QueueRowProps) => {
-    const longPress = useLongPress({ onLongPress, onPress });
+}: QueueRowProps) {
+    const handlePress = useCallback(() => onPress(entry), [entry, onPress]);
+    const handleLongPress = useCallback(() => onLongPress(entry), [entry, onLongPress]);
+    const handleDragPointerDown = useCallback(
+        (event: PointerEvent<HTMLDivElement>) => onDragPointerDown(entry, index, event),
+        [entry, index, onDragPointerDown],
+    );
+    const longPress = useLongPress({ onLongPress: handleLongPress, onPress: handlePress });
 
     return (
         <div
@@ -98,8 +112,9 @@ export const QueueRow = ({
                 </Text>
             </div>
             <div
+                onLostPointerCapture={onDragLostPointerCapture}
                 onPointerCancel={onDragPointerCancel}
-                onPointerDown={onDragPointerDown}
+                onPointerDown={handleDragPointerDown}
                 onPointerMove={onDragPointerMove}
                 onPointerUp={onDragPointerUp}
                 style={{
@@ -116,4 +131,4 @@ export const QueueRow = ({
             </div>
         </div>
     );
-};
+});

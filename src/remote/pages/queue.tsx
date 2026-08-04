@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 
 import { ActionItem, ActionSheet } from '/@/remote/components/action-sheet';
 import { QUEUE_ROW_HEIGHT, QueueRow } from '/@/remote/components/queue/queue-row';
-import { useConnected, useQueue, useQueueActions } from '/@/remote/store';
+import { useConnected, useQueue, useQueueActions, useRemoteStore } from '/@/remote/store';
 import { useCurrentServerId } from '/@/renderer/store/auth.store';
 import { logger } from '/@/renderer/utils/logger';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
@@ -48,12 +48,26 @@ export const QueuePage = () => {
     const draggingRef = useRef(false);
     const dragStateRef = useRef<DragState | null>(null);
     const currentRowRef = useRef<HTMLDivElement | null>(null);
+    const entriesRef = useRef<RemoteQueueEntry[]>(entries);
+    const hasAutoScrolledRef = useRef(false);
+
+    // Kept in sync with `entries` during render (not an effect) so `endDrag`
+    // can read the latest optimistic order synchronously without putting the
+    // `queueMove` side effect inside the `setEntries` updater itself — doing
+    // that would be impure and StrictMode's double-invoked updaters would
+    // send the move twice.
+    entriesRef.current = entries;
 
     useEffect(() => {
-        // Force a fresh snapshot whenever the queue view is opened.
-        queueRequest();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        // Redundant on a warm connection (sendInitialState already delivers the
+        // queue on connect), but required after a cold load of #/queue: firing
+        // this before App's reconnect() has an open socket would otherwise
+        // trigger a spurious "Reconnecting…" toast and race-close the
+        // in-flight CONNECTING socket.
+        if (connected) {
+            queueRequest();
+        }
+    }, [connected, queueRequest]);
 
     useEffect(() => {
         if (!queue || draggingRef.current) return;
@@ -67,6 +81,18 @@ export const QueuePage = () => {
         }
     }, [queue]);
 
+    // A dropped socket unmounts the drag handle mid-drag, so pointerup/cancel
+    // never fires and draggingRef would otherwise stay stuck `true` forever,
+    // freezing all future queue syncs.
+    useEffect(() => {
+        if (!queue) {
+            draggingRef.current = false;
+            dragStateRef.current = null;
+            setDragUniqueId(null);
+            setDragOffsetY(0);
+        }
+    }, [queue]);
+
     const currentUniqueId = useMemo(() => {
         if (!queue) return null;
         if (queue.currentUniqueId) return queue.currentUniqueId;
@@ -74,8 +100,15 @@ export const QueuePage = () => {
         return null;
     }, [queue]);
 
+    // Only follow the current track into view once, when the queue page is
+    // first opened — not on every later track change, which would yank the
+    // list out from under a user scrolled elsewhere (and could scroll the
+    // container mid-drag, desyncing the pointer-based index math).
     useEffect(() => {
+        if (hasAutoScrolledRef.current || draggingRef.current || !currentUniqueId) return;
+
         currentRowRef.current?.scrollIntoView({ block: 'center' });
+        hasAutoScrolledRef.current = true;
     }, [currentUniqueId]);
 
     const handlePress = useCallback(
@@ -129,24 +162,35 @@ export const QueuePage = () => {
     const endDrag = useCallback(
         (event: PointerEvent<HTMLDivElement>) => {
             const drag = dragStateRef.current;
-            if (!drag || event.pointerId !== drag.pointerId) return;
-
-            setEntries((current) => {
-                const finalIndex = current.findIndex((e) => e.uniqueId === drag.uniqueId);
-                if (finalIndex !== -1 && finalIndex !== drag.startIndex) {
-                    const targetEntry = finalIndex === 0 ? current[1] : current[finalIndex - 1];
-                    const edge = finalIndex === 0 ? 'top' : 'bottom';
-                    if (targetEntry) {
-                        queueMove(edge, targetEntry.uniqueId, [drag.uniqueId]);
-                    }
-                }
-                return current;
-            });
 
             dragStateRef.current = null;
             draggingRef.current = false;
             setDragUniqueId(null);
             setDragOffsetY(0);
+
+            if (!drag || event.pointerId !== drag.pointerId) return;
+
+            const current = entriesRef.current;
+            const finalIndex = current.findIndex((e) => e.uniqueId === drag.uniqueId);
+            let moveSent = false;
+
+            if (finalIndex !== -1 && finalIndex !== drag.startIndex) {
+                const targetEntry = finalIndex === 0 ? current[1] : current[finalIndex - 1];
+                const edge = finalIndex === 0 ? 'top' : 'bottom';
+                if (targetEntry) {
+                    queueMove(edge, targetEntry.uniqueId, [drag.uniqueId]);
+                    moveSent = true;
+                }
+            }
+
+            if (!moveSent) {
+                // No-op drag (or the target entry vanished): nothing was sent, so
+                // no rebroadcast will arrive to reconcile. Re-sync from the latest
+                // store snapshot now, otherwise a broadcast skipped while
+                // draggingRef was true is lost until an unrelated future change.
+                const latest = useRemoteStore.getState().queue;
+                if (latest) setEntries(latest.entries);
+            }
         },
         [queueMove],
     );
@@ -229,17 +273,17 @@ export const QueuePage = () => {
                         <QueueRow
                             dragOffsetY={dragUniqueId === entry.uniqueId ? dragOffsetY : undefined}
                             entry={entry}
+                            index={index}
                             isCurrent={entry.uniqueId === currentUniqueId}
                             isDragging={dragUniqueId === entry.uniqueId}
                             key={entry.uniqueId}
+                            onDragLostPointerCapture={endDrag}
                             onDragPointerCancel={endDrag}
-                            onDragPointerDown={(event) =>
-                                handleDragPointerDown(entry, index, event)
-                            }
+                            onDragPointerDown={handleDragPointerDown}
                             onDragPointerMove={handleDragPointerMove}
                             onDragPointerUp={endDrag}
-                            onLongPress={() => handleLongPress(entry)}
-                            onPress={() => handlePress(entry)}
+                            onLongPress={handleLongPress}
+                            onPress={handlePress}
                             rowRef={entry.uniqueId === currentUniqueId ? currentRowRef : undefined}
                             serverId={serverId}
                         />

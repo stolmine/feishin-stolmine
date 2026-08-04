@@ -1,6 +1,7 @@
 import merge from 'lodash/merge';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { shallow } from 'zustand/shallow';
 import { createWithEqualityFn } from 'zustand/traditional';
 
 import { useAuthStore } from '/@/renderer/store/auth.store';
@@ -418,13 +419,16 @@ export const useIsDark = () => useRemoteStore((state) => state.isDark);
 export const useQueue = () => useRemoteStore((state) => state.queue);
 
 export const useQueueActions = () =>
-    useRemoteStore((state) => ({
-        queueClear: state.actions.queueClear,
-        queueMove: state.actions.queueMove,
-        queuePlay: state.actions.queuePlay,
-        queueRemove: state.actions.queueRemove,
-        queueRequest: state.actions.queueRequest,
-    }));
+    useRemoteStore(
+        (state) => ({
+            queueClear: state.actions.queueClear,
+            queueMove: state.actions.queueMove,
+            queuePlay: state.actions.queuePlay,
+            queueRemove: state.actions.queueRemove,
+            queueRequest: state.actions.queueRequest,
+        }),
+        shallow,
+    );
 
 export const useReconnect = () => useRemoteStore((state) => state.actions.reconnect);
 
