@@ -67,6 +67,8 @@ const RemoteListRow = memo(
 
         return (
             <div
+                onClick={longPress.onClick}
+                onContextMenu={longPress.onContextMenu}
                 onPointerCancel={longPress.onPointerCancel}
                 onPointerDown={longPress.onPointerDown}
                 onPointerMove={longPress.onPointerMove}
@@ -74,10 +76,13 @@ const RemoteListRow = memo(
                 style={{
                     ...style,
                     alignItems: 'center',
+                    cursor: 'pointer',
                     display: 'flex',
                     gap: 12,
                     padding: '0 12px',
                     touchAction: 'pan-y',
+                    userSelect: 'none',
+                    WebkitTouchCallout: 'none',
                 }}
             >
                 <CoverImage imageId={item.imageId} serverId={serverId} size={48} />

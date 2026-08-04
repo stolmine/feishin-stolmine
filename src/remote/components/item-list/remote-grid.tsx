@@ -63,16 +63,21 @@ const RemoteGridCard = memo(
 
         return (
             <div
+                onClick={longPress.onClick}
+                onContextMenu={longPress.onContextMenu}
                 onPointerCancel={longPress.onPointerCancel}
                 onPointerDown={longPress.onPointerDown}
                 onPointerMove={longPress.onPointerMove}
                 onPointerUp={longPress.onPointerUp}
                 style={{
+                    cursor: 'pointer',
                     display: 'flex',
                     flex: 1,
                     flexDirection: 'column',
                     gap: 6,
                     touchAction: 'pan-y',
+                    userSelect: 'none',
+                    WebkitTouchCallout: 'none',
                 }}
             >
                 <CoverImage

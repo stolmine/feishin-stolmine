@@ -86,16 +86,21 @@ const SearchResultRow = ({
 
     return (
         <div
+            onClick={longPress.onClick}
+            onContextMenu={longPress.onContextMenu}
             onPointerCancel={longPress.onPointerCancel}
             onPointerDown={longPress.onPointerDown}
             onPointerMove={longPress.onPointerMove}
             onPointerUp={longPress.onPointerUp}
             style={{
                 alignItems: 'center',
+                cursor: 'pointer',
                 display: 'flex',
                 gap: 12,
                 padding: '8px 12px',
                 touchAction: 'pan-y',
+                userSelect: 'none',
+                WebkitTouchCallout: 'none',
             }}
         >
             <CoverImage imageId={row.imageId} itemType={itemType} serverId={serverId} size={48} />

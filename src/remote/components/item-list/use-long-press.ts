@@ -1,8 +1,9 @@
 import { useCallback, useRef } from 'react';
 
 const LONG_PRESS_DELAY_MS = 500;
-// Touch slop: movement past this many px turns the gesture into a scroll and
-// cancels BOTH the long-press and the tap. ~10px matches iOS/Android list slop.
+// Touch slop: movement past this many px is a scroll, so cancel the long-press
+// timer. Tap-vs-scroll for the short press is delegated to the browser's native
+// `click` event (which never fires after a scroll), so this only gates long-press.
 const MOVE_CANCEL_THRESHOLD_PX = 10;
 
 interface UseLongPressOptions {
@@ -13,8 +14,9 @@ interface UseLongPressOptions {
 export const useLongPress = ({ onLongPress, onPress }: UseLongPressOptions) => {
     const timeoutRef = useRef<null | ReturnType<typeof setTimeout>>(null);
     const startPosRef = useRef<null | { x: number; y: number }>(null);
-    const firedLongPressRef = useRef(false);
-    const movedRef = useRef(false);
+    // Set true when the long-press timer fires, so the trailing synthetic click
+    // is swallowed instead of also triggering the tap action.
+    const suppressClickRef = useRef(false);
 
     const clearTimer = useCallback(() => {
         if (timeoutRef.current) {
@@ -25,12 +27,11 @@ export const useLongPress = ({ onLongPress, onPress }: UseLongPressOptions) => {
 
     const onPointerDown = useCallback(
         (event: React.PointerEvent) => {
-            firedLongPressRef.current = false;
-            movedRef.current = false;
+            suppressClickRef.current = false;
             startPosRef.current = { x: event.clientX, y: event.clientY };
             clearTimer();
             timeoutRef.current = setTimeout(() => {
-                firedLongPressRef.current = true;
+                suppressClickRef.current = true;
                 onLongPress();
             }, LONG_PRESS_DELAY_MS);
         },
@@ -41,7 +42,7 @@ export const useLongPress = ({ onLongPress, onPress }: UseLongPressOptions) => {
         (event: React.PointerEvent) => {
             const start = startPosRef.current;
 
-            if (!start || movedRef.current) {
+            if (!start) {
                 return;
             }
 
@@ -49,9 +50,8 @@ export const useLongPress = ({ onLongPress, onPress }: UseLongPressOptions) => {
             const dy = event.clientY - start.y;
 
             if (Math.sqrt(dx * dx + dy * dy) > MOVE_CANCEL_THRESHOLD_PX) {
-                // Past slop: this is a scroll, not a tap. Cancel the long-press
-                // timer and latch `moved` so pointerup does NOT fire onPress.
-                movedRef.current = true;
+                // Past slop: this is a scroll, not a long-press. Cancel the timer.
+                // The tap (click) is handled natively and won't fire after a scroll.
                 clearTimer();
             }
         },
@@ -60,17 +60,27 @@ export const useLongPress = ({ onLongPress, onPress }: UseLongPressOptions) => {
 
     const onPointerUp = useCallback(() => {
         clearTimer();
-
-        if (!firedLongPressRef.current && !movedRef.current) {
-            onPress?.();
-        }
-    }, [clearTimer, onPress]);
+    }, [clearTimer]);
 
     const onPointerCancel = useCallback(() => {
-        // The browser took over the gesture as a scroll — never a tap.
-        movedRef.current = true;
         clearTimer();
     }, [clearTimer]);
 
-    return { onPointerCancel, onPointerDown, onPointerMove, onPointerUp };
+    // The tap. `click` fires only on a genuine tap — the browser suppresses it
+    // when the touch turned into a scroll — so this reliably distinguishes the
+    // two without fighting pointercancel. Skip it right after a long-press.
+    const onClick = useCallback(() => {
+        if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+        }
+        onPress?.();
+    }, [onPress]);
+
+    // Prevent the iOS long-press callout / context menu from hijacking the gesture.
+    const onContextMenu = useCallback((event: React.MouseEvent) => {
+        event.preventDefault();
+    }, []);
+
+    return { onClick, onContextMenu, onPointerCancel, onPointerDown, onPointerMove, onPointerUp };
 };
