@@ -9,7 +9,7 @@ import {
 } from 'react-icons/ri';
 import { NavLink } from 'react-router';
 
-import { useConnected, useHasLibraryAccess } from '/@/remote/store';
+import { useHasLibraryAccess } from '/@/remote/store';
 import { Flex } from '/@/shared/components/flex/flex';
 import { Text } from '/@/shared/components/text/text';
 
@@ -41,13 +41,11 @@ const settingsTab: TabConfig = {
 };
 
 export const TabBar = () => {
-    const connected = useConnected();
     const hasLibraryAccess = useHasLibraryAccess();
 
-    if (!connected) {
-        return null;
-    }
-
+    // The tab bar stays visible even across a transient socket drop (the store
+    // auto-reconnects); browsing works over direct HTTP, only queue actions need
+    // the socket. Yanking navigation on every blip was jarring on mobile.
     const tabs = hasLibraryAccess
         ? [nowPlayingTab, ...libraryTabs, settingsTab]
         : [nowPlayingTab, settingsTab];

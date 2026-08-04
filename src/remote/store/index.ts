@@ -36,6 +36,33 @@ interface StatefulWebSocket extends WebSocket {
     natural: boolean;
 }
 
+// Auto-reconnect state (module-level so it survives store updates and is never
+// persisted). Mobile browsers suspend/close the WebSocket when the PWA is
+// backgrounded or the phone locks; without this the socket stays dead, the tab
+// bar (previously gated on `connected`) vanished, and queue actions silently
+// failed.
+let reconnectTimer: null | ReturnType<typeof setTimeout> = null;
+let reconnectAttempts = 0;
+const RECONNECT_MAX_DELAY_MS = 15000;
+
+const clearReconnect = () => {
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+};
+
+const scheduleReconnect = (reconnect: () => void) => {
+    if (reconnectTimer) return;
+    const delay = Math.min(RECONNECT_MAX_DELAY_MS, 1000 * 2 ** reconnectAttempts);
+    reconnectAttempts += 1;
+    logger.info('Scheduling remote reconnect', { attempt: reconnectAttempts, delay });
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        reconnect();
+    }, delay);
+};
+
 const initialState: SettingsState = {
     connected: false,
     hasLibraryAccess: false,
@@ -57,6 +84,8 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                 actions: {
                     reconnect: async () => {
                         logger.info('Reconnect initiated');
+                        // Cancel any pending scheduled retry — we are connecting now.
+                        clearReconnect();
                         const existing = get().socket;
 
                         if (existing) {
@@ -234,6 +263,9 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                         }),
                                     );
                                 }
+                                // Successful connection — reset the backoff.
+                                reconnectAttempts = 0;
+                                clearReconnect();
                                 set({ connected: true });
                             });
 
@@ -249,25 +281,20 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                         code: reason.code,
                                     });
                                     location.reload();
-                                } else if (reason.code === 4000) {
-                                    logger.warn('Server is down');
-                                    toast.warn({
-                                        message: 'Feishin remote server is down',
-                                        title: 'Connection closed',
-                                    });
-                                } else if (reason.code !== 4001 && !socket.natural) {
-                                    logger.error('Socket closed unexpectedly', {
-                                        code: reason.code,
-                                        reason: reason.reason,
-                                    });
-                                    toast.error({
-                                        message: 'Socket closed for unexpected reason',
-                                        title: 'Connection closed',
-                                    });
+                                    return;
                                 }
 
                                 if (!socket.natural) {
+                                    // Unexpected drop (server down, network blip, mobile tab
+                                    // suspend). Mark disconnected and auto-retry with backoff
+                                    // rather than giving up — the tab bar and queue actions
+                                    // come back on their own once the desktop is reachable.
+                                    logger.warn('Socket closed unexpectedly, will retry', {
+                                        code: reason.code,
+                                        reason: reason.reason,
+                                    });
                                     set({ connected: false, info: {} });
+                                    scheduleReconnect(() => get().actions.reconnect());
                                 }
                             });
 
@@ -276,17 +303,28 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                     },
                     send: (data: ClientEvent) => {
                         const socket = get().socket;
-                        if (socket) {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
                             logger.debug('Sending event to server', {
                                 data: data,
                                 event: data.event,
                                 readyState: socket.readyState,
                             });
-                            socket.send(JSON.stringify(data));
+                            try {
+                                socket.send(JSON.stringify(data));
+                            } catch (error) {
+                                logger.error('Send failed, reconnecting', { error });
+                                toast.warn({ message: 'Reconnecting to Feishin…' });
+                                get().actions.reconnect();
+                            }
                         } else {
-                            logger.warn('Cannot send event - socket not available', {
+                            // Socket dropped (e.g. phone was asleep). Kick a reconnect so the
+                            // next tap works; the current action is not auto-retried.
+                            logger.warn('Cannot send event - socket not open, reconnecting', {
                                 event: data.event,
+                                readyState: socket?.readyState,
                             });
+                            toast.warn({ message: 'Reconnecting to Feishin…' });
+                            get().actions.reconnect();
                         }
                     },
                     setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => {
@@ -339,3 +377,23 @@ export const useSend = () => useRemoteStore((state) => state.actions.send);
 export const useToggleDark = () => useRemoteStore((state) => state.actions.toggleIsDark);
 
 export const useToggleShowImage = () => useRemoteStore((state) => state.actions.toggleShowImage);
+
+// Reconnect eagerly when the phone wakes / the tab is foregrounded again, or the
+// network comes back — mobile browsers routinely kill the socket while backgrounded.
+if (typeof document !== 'undefined') {
+    const reconnectIfStale = () => {
+        const state = useRemoteStore.getState();
+        const socket = state.socket;
+        if (!state.connected || !socket || socket.readyState !== WebSocket.OPEN) {
+            state.actions.reconnect();
+        }
+    };
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            reconnectIfStale();
+        }
+    });
+
+    window.addEventListener('online', reconnectIfStale);
+}

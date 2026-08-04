@@ -13,10 +13,11 @@ interface CoverImageProps {
     size?: number;
 }
 
-// Grid cards omit an explicit size and fill their column; request a modest
-// retina-adequate thumbnail rather than full-size art to cut first-paint
-// bandwidth over the phone's wifi link.
-const REQUEST_SIZE_FALLBACK_PX = 256;
+// Grid cards omit an explicit `size` and fill their column; request a crisp
+// thumbnail sized for a phone card on a retina display.
+const REQUEST_SIZE_FALLBACK_PX = 400;
+// Cap for the retina (2x) upscale of fixed-size covers.
+const REQUEST_SIZE_MAX_PX = 512;
 
 export const CoverImage = ({
     alt = '',
@@ -31,9 +32,14 @@ export const CoverImage = ({
             return null;
         }
 
+        // Request at 2x the display size (capped) for retina crispness; grid
+        // cards (no explicit size) get the full-card fallback resolution.
+        const requestSize =
+            size === undefined ? REQUEST_SIZE_FALLBACK_PX : Math.min(REQUEST_SIZE_MAX_PX, size * 2);
+
         return api.controller.getImageUrl({
             apiClientProps: { serverId },
-            query: { id: imageId, itemType, size: size ?? REQUEST_SIZE_FALLBACK_PX },
+            query: { id: imageId, itemType, size: requestSize },
         });
     }, [imageId, itemType, serverId, size]);
 
