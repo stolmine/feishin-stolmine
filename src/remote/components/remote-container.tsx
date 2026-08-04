@@ -1,7 +1,7 @@
 import formatDuration from 'format-duration';
-import debounce from 'lodash/debounce';
-import { CSSProperties, useCallback } from 'react';
+import { CSSProperties } from 'react';
 import { RiPauseFill, RiPlayFill, RiVolumeUpFill } from 'react-icons/ri';
+import { useNavigate } from 'react-router';
 
 import { PlayerImage } from '/@/remote/components/player-image';
 import { WrappedSlider } from '/@/remote/components/wrapped-slider';
@@ -9,10 +9,8 @@ import { useInfo, useSend, useShowImage } from '/@/remote/store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Flex } from '/@/shared/components/flex/flex';
 import { Group } from '/@/shared/components/group/group';
-import { Rating } from '/@/shared/components/rating/rating';
 import { Stack } from '/@/shared/components/stack/stack';
 import { Text } from '/@/shared/components/text/text';
-import { Tooltip } from '/@/shared/components/tooltip/tooltip';
 import { PlayerRepeat, PlayerStatus } from '/@/shared/types/types';
 
 const ellipsis: CSSProperties = {
@@ -25,17 +23,10 @@ export const RemoteContainer = () => {
     const { position, repeat, shuffle, song, status, volume } = useInfo();
     const send = useSend();
     const showImage = useShowImage();
+    const navigate = useNavigate();
 
     const id = song?.id;
-
-    const setRating = useCallback(
-        (rating: number) => {
-            send({ event: 'rating', id: id!, rating });
-        },
-        [send, id],
-    );
-
-    const debouncedSetRating = debounce(setRating, 400);
+    const artistId = song?.artists?.[0]?.id ?? song?.albumArtists?.[0]?.id;
 
     return (
         <Stack gap="md" h="100%" px="lg" py="sm" style={{ overflow: 'hidden' }} w="100%">
@@ -61,58 +52,43 @@ export const RemoteContainer = () => {
                     >
                         {song.name}
                     </Text>
-                    <Text fw={500} size="md" style={ellipsis} ta="center">
-                        {song.artistName}
-                    </Text>
-                    <Text isMuted size="sm" style={ellipsis} ta="center">
-                        {song.album}
-                    </Text>
-                    <Group gap={6} justify="center" mt={2} wrap="nowrap">
-                        {song.releaseDate && (
+                    <Group gap={6} justify="center" mt={2} style={{ minWidth: 0 }} wrap="nowrap">
+                        <Text
+                            component="span"
+                            fw={500}
+                            isLink={Boolean(artistId)}
+                            onClick={artistId ? () => navigate(`/artists/${artistId}`) : undefined}
+                            overflow="hidden"
+                            size="md"
+                            style={{ flexShrink: 1, minWidth: 0 }}
+                        >
+                            {song.artistName}
+                        </Text>
+                        {song.album && (
                             <>
-                                <Text isMuted size="xs">
-                                    {new Date(song.releaseDate).toLocaleDateString()}
-                                </Text>
-                                <Text isMuted size="xs">
+                                <Text component="span" isMuted size="md">
                                     ·
+                                </Text>
+                                <Text
+                                    component="span"
+                                    isLink={Boolean(song.albumId)}
+                                    isMuted
+                                    onClick={
+                                        song.albumId
+                                            ? () => navigate(`/albums/${song.albumId}`)
+                                            : undefined
+                                    }
+                                    overflow="hidden"
+                                    size="md"
+                                    style={{ flexShrink: 1, minWidth: 0 }}
+                                >
+                                    {song.album}
                                 </Text>
                             </>
                         )}
-                        <Text isMuted size="xs">
-                            {song.playCount} plays
-                        </Text>
                     </Group>
                 </Stack>
             )}
-            <Group gap="sm" justify="center" style={{ flexShrink: 0 }} wrap="nowrap">
-                <ActionIcon
-                    disabled={!id}
-                    icon="favorite"
-                    iconProps={{
-                        fill: song?.userFavorite ? 'primary' : 'default',
-                        size: 'lg',
-                    }}
-                    onClick={() => {
-                        if (!id) return;
-
-                        send({ event: 'favorite', favorite: !song.userFavorite, id });
-                    }}
-                    size="md"
-                    tooltip={{
-                        label: song?.userFavorite ? 'Unfavorite' : 'Favorite',
-                    }}
-                    variant="subtle"
-                />
-                {(song?._serverType === 'navidrome' || song?._serverType === 'subsonic') && (
-                    <Tooltip label="Double click to clear" openDelay={1000}>
-                        <Rating
-                            onChange={debouncedSetRating}
-                            onDoubleClick={() => debouncedSetRating(0)}
-                            value={song.userRating ?? 0}
-                        />
-                    </Tooltip>
-                )}
-            </Group>
             <Group gap="sm" justify="center" style={{ flexShrink: 0 }} wrap="nowrap">
                 <ActionIcon
                     icon="mediaShuffle"
@@ -165,7 +141,7 @@ export const RemoteContainer = () => {
                     {id && status === PlayerStatus.PLAYING ? (
                         <RiPauseFill size={30} />
                     ) : (
-                        <RiPlayFill size={30} style={{ transform: 'translateX(2px)' }} />
+                        <RiPlayFill size={30} style={{ transform: 'translateX(-2px)' }} />
                     )}
                 </ActionIcon>
                 <ActionIcon
