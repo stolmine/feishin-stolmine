@@ -11,6 +11,11 @@ export type ClientEvent =
     | ClientFavorite
     | ClientPosition
     | ClientQueueAdd
+    | ClientQueueClear
+    | ClientQueueMove
+    | ClientQueuePlay
+    | ClientQueueRemove
+    | ClientQueueRequest
     | ClientRating
     | ClientSimpleEvent
     | ClientVolume;
@@ -34,6 +39,31 @@ export interface ClientQueueAdd {
     serverId: string;
 }
 
+export interface ClientQueueClear {
+    event: 'queueClear';
+}
+
+export interface ClientQueueMove {
+    edge: 'bottom' | 'top';
+    event: 'queueMove';
+    targetUniqueId: string;
+    uniqueIds: string[];
+}
+
+export interface ClientQueuePlay {
+    event: 'queuePlay';
+    uniqueId: string;
+}
+
+export interface ClientQueueRemove {
+    event: 'queueRemove';
+    uniqueIds: string[];
+}
+
+export interface ClientQueueRequest {
+    event: 'queueRequest';
+}
+
 export interface ClientRating {
     event: 'rating';
     id: string;
@@ -46,6 +76,19 @@ export interface ClientSimpleEvent {
 export interface ClientVolume {
     event: 'volume';
     volume: number;
+}
+
+export interface RemoteQueueEntry {
+    album: null | string;
+    albumId: null | string;
+    artistName: string;
+    duration: number;
+    id: string;
+    imageId: null | string;
+    name: string;
+    uniqueId: string;
+    userFavorite: boolean;
+    userRating: null | number;
 }
 
 export type RemoteServer = Omit<ServerListItemWithCredential, 'savePassword'>;
@@ -67,6 +110,7 @@ export type ServerEvent =
     | ServerPlayStatus
     | ServerPosition
     | ServerProxy
+    | ServerQueue
     | ServerRating
     | ServerRepeat
     | ServerShuffle
@@ -92,6 +136,16 @@ export interface ServerPosition {
 export interface ServerProxy {
     data: string;
     event: 'proxy';
+}
+
+export interface ServerQueue {
+    data: {
+        currentIndex: number;
+        currentUniqueId: null | string;
+        entries: RemoteQueueEntry[];
+        shuffle: boolean;
+    };
+    event: 'queue';
 }
 
 export interface ServerRating {

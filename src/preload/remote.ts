@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron';
 
 import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
-import { RemoteServer } from '/@/shared/types/remote-types';
+import { RemoteServer, ServerQueue } from '/@/shared/types/remote-types';
 import { Play, PlayerStatus } from '/@/shared/types/types';
 
 const requestFavorite = (
@@ -18,6 +18,24 @@ const requestQueueAdd = (
     cb: (data: { ids: string[]; itemType: LibraryItem; playType: Play; serverId: string }) => void,
 ) => {
     ipcRenderer.on('request-queue-add', (_, data) => cb(data));
+};
+
+const requestQueueClear = (cb: () => void) => {
+    ipcRenderer.on('request-queue-clear', () => cb());
+};
+
+const requestQueueMove = (
+    cb: (data: { edge: 'bottom' | 'top'; targetUniqueId: string; uniqueIds: string[] }) => void,
+) => {
+    ipcRenderer.on('request-queue-move', (_, data) => cb(data));
+};
+
+const requestQueuePlay = (cb: (data: { uniqueId: string }) => void) => {
+    ipcRenderer.on('request-queue-play', (_, data) => cb(data));
+};
+
+const requestQueueRemove = (cb: (data: { uniqueIds: string[] }) => void) => {
+    ipcRenderer.on('request-queue-remove', (_, data) => cb(data));
 };
 
 const requestRating = (cb: (data: { id: string; rating: number; serverId: string }) => void) => {
@@ -91,6 +109,10 @@ const updateVolume = (volume: number) => {
     ipcRenderer.send('update-volume', volume);
 };
 
+const updateQueue = (queue: ServerQueue['data']) => {
+    ipcRenderer.send('update-queue', queue);
+};
+
 const updatePosition = (timeSec: number) => {
     ipcRenderer.send('update-position', timeSec);
 };
@@ -99,6 +121,10 @@ export const remote = {
     requestFavorite,
     requestPosition,
     requestQueueAdd,
+    requestQueueClear,
+    requestQueueMove,
+    requestQueuePlay,
+    requestQueueRemove,
     requestRating,
     requestSeek,
     requestVolume,
@@ -108,6 +134,7 @@ export const remote = {
     updatePassword,
     updatePlayback,
     updatePosition,
+    updateQueue,
     updateRating,
     updateRepeat,
     updateServer,

@@ -1,5 +1,6 @@
 import isElectron from 'is-electron';
-import { useEffect, useRef } from 'react';
+import debounce from 'lodash/debounce';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { getItemImageUrl } from '/@/renderer/components/item-image/item-image';
 import { usePlayerEvents } from '/@/renderer/features/player/audio-player/hooks/use-player-events';
@@ -7,19 +8,34 @@ import { usePlayer } from '/@/renderer/features/player/context/player-context';
 import { useSetRating } from '/@/renderer/features/shared/hooks/use-set-rating';
 import { useCreateFavorite } from '/@/renderer/features/shared/mutations/create-favorite-mutation';
 import { useDeleteFavorite } from '/@/renderer/features/shared/mutations/delete-favorite-mutation';
-import { usePlayerActions, usePlayerStore, useRemoteSettings } from '/@/renderer/store';
+import {
+    isShuffleEnabled,
+    mapShuffledToQueueIndex,
+    subscribeCurrentTrack,
+    subscribePlayerQueue,
+    usePlayerActions,
+    usePlayerStore,
+    useRemoteSettings,
+} from '/@/renderer/store';
 import { useCurrentServerWithCredential } from '/@/renderer/store/auth.store';
 import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
-import { LibraryItem } from '/@/shared/types/domain-types';
-import { RemoteServer } from '/@/shared/types/remote-types';
+import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
+import { RemoteQueueEntry, RemoteServer, ServerQueue } from '/@/shared/types/remote-types';
 import { PlayerShuffle } from '/@/shared/types/types';
 
 const remote = isElectron() ? window.api.remote : null;
 const ipc = isElectron() ? window.api.ipc : null;
 
 export const useRemote = () => {
-    const { mediaSkipForward, setVolume } = usePlayerActions();
+    const {
+        clearQueue,
+        clearSelected,
+        mediaPlayByIndex,
+        mediaSkipForward,
+        moveSelectedTo,
+        setVolume,
+    } = usePlayerActions();
     const player = usePlayerStore();
     const playerContext = usePlayer();
 
@@ -113,6 +129,43 @@ export const useRemote = () => {
             playerContext.addToQueueByFetch(data.serverId, data.ids, data.itemType, data.playType);
         });
 
+        remote.requestQueuePlay((data: { uniqueId: string }) => {
+            logger.debug('Request queue play received', { uniqueId: data.uniqueId });
+            const defaultIndex = usePlayerStore.getState().queue.default.indexOf(data.uniqueId);
+            if (defaultIndex !== -1) {
+                mediaPlayByIndex(defaultIndex);
+            }
+        });
+
+        remote.requestQueueRemove((data: { uniqueIds: string[] }) => {
+            logger.debug('Request queue remove received', { uniqueIds: data.uniqueIds });
+            const { songs } = usePlayerStore.getState().queue;
+            const items = data.uniqueIds
+                .map((uniqueId) => songs[uniqueId])
+                .filter((song): song is QueueSong => Boolean(song));
+            clearSelected(items);
+        });
+
+        remote.requestQueueMove(
+            (data: { edge: 'bottom' | 'top'; targetUniqueId: string; uniqueIds: string[] }) => {
+                logger.debug('Request queue move received', {
+                    edge: data.edge,
+                    targetUniqueId: data.targetUniqueId,
+                    uniqueIds: data.uniqueIds,
+                });
+                const { songs } = usePlayerStore.getState().queue;
+                const items = data.uniqueIds
+                    .map((uniqueId) => songs[uniqueId])
+                    .filter((song): song is QueueSong => Boolean(song));
+                moveSelectedTo(items, data.targetUniqueId, data.edge);
+            },
+        );
+
+        remote.requestQueueClear(() => {
+            logger.debug('Request queue clear received');
+            clearQueue();
+        });
+
         return () => {
             ipc?.removeAllListeners('request-position');
             ipc?.removeAllListeners('request-seek');
@@ -120,11 +173,19 @@ export const useRemote = () => {
             ipc?.removeAllListeners('request-favorite');
             ipc?.removeAllListeners('request-rating');
             ipc?.removeAllListeners('request-queue-add');
+            ipc?.removeAllListeners('request-queue-play');
+            ipc?.removeAllListeners('request-queue-remove');
+            ipc?.removeAllListeners('request-queue-move');
+            ipc?.removeAllListeners('request-queue-clear');
         };
     }, [
         addToFavoritesMutation,
+        clearQueue,
+        clearSelected,
         isRemoteEnabled,
+        mediaPlayByIndex,
         mediaSkipForward,
+        moveSelectedTo,
         player,
         playerContext,
         removeFromFavoritesMutation,
@@ -197,6 +258,81 @@ export const useRemote = () => {
         logger.debug('Sending current server', { id: server.id, name: server.name });
         remote.updateServer(server);
     }, [currentServer, isRemoteEnabled]);
+
+    // Push a slim queue snapshot whenever the queue, current track, or shuffle
+    // state changes. Reorders fire bursts of updates, so this is debounced.
+    const pushQueueSnapshot = useMemo(
+        () =>
+            debounce(() => {
+                if (!remote) {
+                    return;
+                }
+
+                const state = usePlayerStore.getState();
+                const queue = state.getQueue();
+                const shuffle = isShuffleEnabled(state);
+
+                let currentIndex = state.player.index;
+                if (shuffle) {
+                    currentIndex = mapShuffledToQueueIndex(currentIndex, state.queue.shuffled);
+                }
+                if (currentIndex < 0 || currentIndex >= queue.items.length) {
+                    currentIndex = -1;
+                }
+
+                const currentSong = currentIndex !== -1 ? queue.items[currentIndex] : undefined;
+
+                const entries: RemoteQueueEntry[] = queue.items.map((song) => ({
+                    album: song.album,
+                    albumId: song.albumId,
+                    artistName: song.artistName,
+                    duration: song.duration,
+                    id: song.id,
+                    imageId: song.imageId,
+                    name: song.name,
+                    uniqueId: song._uniqueId,
+                    userFavorite: song.userFavorite,
+                    userRating: song.userRating,
+                }));
+
+                const snapshot: ServerQueue['data'] = {
+                    currentIndex,
+                    currentUniqueId: currentSong?._uniqueId ?? null,
+                    entries,
+                    shuffle,
+                };
+
+                logger.debug('Update queue sent', {
+                    currentIndex: snapshot.currentIndex,
+                    entryCount: entries.length,
+                    shuffle,
+                });
+                remote.updateQueue(snapshot);
+            }, 250),
+        [],
+    );
+
+    useEffect(() => {
+        if (!isRemoteEnabled || !remote) {
+            return;
+        }
+
+        // Push once on mount so a freshly-connected phone gets state immediately.
+        pushQueueSnapshot();
+
+        const unsubQueue = subscribePlayerQueue(() => {
+            pushQueueSnapshot();
+        });
+        const unsubCurrentTrack = subscribeCurrentTrack(() => {
+            pushQueueSnapshot();
+        });
+
+        return () => {
+            unsubQueue();
+            unsubCurrentTrack();
+            pushQueueSnapshot.cancel();
+        };
+    }, [isRemoteEnabled, pushQueueSnapshot]);
 
     usePlayerEvents(
         {

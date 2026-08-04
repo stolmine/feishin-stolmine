@@ -13,7 +13,7 @@ import { isLinux } from '/@/main/env';
 import { getMainWindow } from '/@/main/index';
 import log from '/@/main/logger';
 import { QueueSong } from '/@/shared/types/domain-types';
-import { ClientEvent, RemoteServer, ServerEvent } from '/@/shared/types/remote-types';
+import { ClientEvent, RemoteServer, ServerEvent, ServerQueue } from '/@/shared/types/remote-types';
 import { PlayerRepeat, PlayerStatus, SongState } from '/@/shared/types/types';
 
 let mprisPlayer: any | undefined;
@@ -86,6 +86,7 @@ function sendInitialState(client: StatefulWebSocket): void {
         data: isRemoteGateConfigured() ? currentServer : null,
         event: 'server',
     });
+    send({ client, data: currentQueue, event: 'queue' });
 }
 
 export const shutdownServer = () => {
@@ -126,6 +127,12 @@ const ZLIB_REGEX = /bdeflate\b/;
 
 const currentState: SongState = {};
 let currentServer: null | RemoteServer = null;
+let currentQueue: ServerQueue['data'] = {
+    currentIndex: -1,
+    currentUniqueId: null,
+    entries: [],
+    shuffle: false,
+};
 
 const getEncoding = (encoding: string | string[]): Encoding => {
     const encodingArray = Array.isArray(encoding) ? encoding : [encoding];
@@ -493,6 +500,37 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
                                 });
                                 break;
                             }
+                            case 'queueClear': {
+                                getMainWindow()?.webContents.send('request-queue-clear');
+                                break;
+                            }
+                            case 'queueMove': {
+                                const { edge, targetUniqueId, uniqueIds } = json;
+                                getMainWindow()?.webContents.send('request-queue-move', {
+                                    edge,
+                                    targetUniqueId,
+                                    uniqueIds,
+                                });
+                                break;
+                            }
+                            case 'queuePlay': {
+                                const { uniqueId } = json;
+                                getMainWindow()?.webContents.send('request-queue-play', {
+                                    uniqueId,
+                                });
+                                break;
+                            }
+                            case 'queueRemove': {
+                                const { uniqueIds } = json;
+                                getMainWindow()?.webContents.send('request-queue-remove', {
+                                    uniqueIds,
+                                });
+                                break;
+                            }
+                            case 'queueRequest': {
+                                send({ client: ws, data: currentQueue, event: 'queue' });
+                                break;
+                            }
                             case 'rating': {
                                 const { id, rating } = json;
                                 if (id && id === currentState.song?.id) {
@@ -684,6 +722,11 @@ ipcMain.on('update-song', (_event, song: QueueSong | undefined, imageUrl?: null 
     if (songChanged) {
         broadcast({ data: song || null, event: 'song' });
     }
+});
+
+ipcMain.on('update-queue', (_event, queue: ServerQueue['data']) => {
+    currentQueue = queue;
+    broadcast({ data: queue, event: 'queue' });
 });
 
 ipcMain.on('update-server', (_event, server: null | RemoteServer) => {
