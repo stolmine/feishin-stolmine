@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RiArrowRightSLine } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
 import { ActionSheet } from '/@/remote/components/action-sheet';
+import { AlphaRibbon } from '/@/remote/components/item-list/alpha-ribbon';
 import { CoverImage } from '/@/remote/components/item-list/cover-image';
 import { RemoteList } from '/@/remote/components/item-list/remote-list';
-import { RowData } from '/@/remote/components/item-list/types';
+import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types';
+import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index';
 import { useLongPress } from '/@/remote/components/item-list/use-long-press';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
@@ -31,6 +33,7 @@ import {
 import { Play } from '/@/shared/types/types';
 
 const PAGE_SIZE = 100;
+const RIBBON_MIN_TOTAL_COUNT = 40;
 const SEARCH_DEBOUNCE_MS = 300;
 const SEARCH_SONG_LIMIT = 20;
 const SEARCH_ALBUM_LIMIT = 10;
@@ -160,6 +163,17 @@ export const LibraryPage = () => {
         pageSize: PAGE_SIZE,
     });
 
+    const listRef = useRef<RemoteListHandle>(null);
+
+    const { buckets, estimate, resolve } = useLetterIndex<Song>({
+        buildProbeQueryOptions: buildListQueryOptions,
+        cacheKey: 'library:name:asc',
+        getLoadedItem: getItem,
+        getName: (song) => song.name,
+        serverId,
+        totalCount,
+    });
+
     const getRowData = useCallback(
         (index: number): RowData | undefined => {
             const song = getItem(index);
@@ -255,19 +269,39 @@ export const LibraryPage = () => {
                     value={searchInput}
                 />
             </Stack>
-            <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
+            <Flex
+                direction="column"
+                style={{
+                    flex: 1,
+                    minHeight: 0,
+                    position: isSearching ? undefined : 'relative',
+                }}
+            >
                 {!isSearching ? (
-                    <RemoteList
-                        getItem={getRowData}
-                        itemCount={totalCount}
-                        onLongPress={handleSongLongPress}
-                        onPress={handleSongPress}
-                        onRangeChanged={({ startIndex, stopIndex }) =>
-                            ensureRange(startIndex, stopIndex)
-                        }
-                        scrollKey="library"
-                        serverId={serverId}
-                    />
+                    <>
+                        <RemoteList
+                            getItem={getRowData}
+                            itemCount={totalCount}
+                            onLongPress={handleSongLongPress}
+                            onPress={handleSongPress}
+                            onRangeChanged={({ startIndex, stopIndex }) =>
+                                ensureRange(startIndex, stopIndex)
+                            }
+                            ref={listRef}
+                            scrollKey="library"
+                            serverId={serverId}
+                        />
+                        {totalCount > RIBBON_MIN_TOTAL_COUNT && (
+                            <AlphaRibbon
+                                buckets={buckets}
+                                estimate={estimate}
+                                onScrollToIndex={(index, options) =>
+                                    listRef.current?.scrollToIndex(index, options)
+                                }
+                                resolve={resolve}
+                            />
+                        )}
+                    </>
                 ) : isSearchLoading ? (
                     <Center h="100%" w="100%">
                         <Text isMuted>Searching…</Text>

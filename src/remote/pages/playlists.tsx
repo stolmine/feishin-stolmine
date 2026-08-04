@@ -1,11 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { RiLayoutGridLine, RiListCheck2 } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
 import { ActionSheet } from '/@/remote/components/action-sheet';
+import { AlphaRibbon } from '/@/remote/components/item-list/alpha-ribbon';
 import { RemoteGrid } from '/@/remote/components/item-list/remote-grid';
 import { RemoteList } from '/@/remote/components/item-list/remote-list';
-import { RowData } from '/@/remote/components/item-list/types';
+import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types';
+import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
 import { useHasLibraryAccess, useRemoteListDisplay, useSetListDisplay } from '/@/remote/store';
@@ -18,6 +20,7 @@ import { Text } from '/@/shared/components/text/text';
 import { LibraryItem, Playlist, PlaylistListSort, SortOrder } from '/@/shared/types/domain-types';
 
 const PAGE_SIZE = 100;
+const RIBBON_MIN_TOTAL_COUNT = 40;
 
 const playlistToRowData = (playlist: Playlist): RowData => ({
     id: playlist.id,
@@ -72,6 +75,17 @@ export const PlaylistsPage = () => {
         pageSize: PAGE_SIZE,
     });
 
+    const listRef = useRef<RemoteListHandle>(null);
+
+    const { buckets, estimate, resolve } = useLetterIndex<Playlist>({
+        buildProbeQueryOptions: buildListQueryOptions,
+        cacheKey: 'playlists:name:asc',
+        getLoadedItem: getItem,
+        getName: (playlist) => playlist.name,
+        serverId,
+        totalCount,
+    });
+
     const getRowData = useCallback(
         (index: number): RowData | undefined => {
             const playlist = getItem(index);
@@ -123,7 +137,7 @@ export const PlaylistsPage = () => {
                     )}
                 </ActionIcon>
             </Flex>
-            <Flex direction="column" style={{ flex: 1, minHeight: 0 }}>
+            <Flex direction="column" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
                 {display === 'grid' ? (
                     <RemoteGrid
                         getItem={getRowData}
@@ -133,6 +147,7 @@ export const PlaylistsPage = () => {
                         onRangeChanged={({ startIndex, stopIndex }) =>
                             ensureRange(startIndex, stopIndex)
                         }
+                        ref={listRef}
                         scrollKey="playlists"
                         serverId={serverId}
                     />
@@ -145,8 +160,19 @@ export const PlaylistsPage = () => {
                         onRangeChanged={({ startIndex, stopIndex }) =>
                             ensureRange(startIndex, stopIndex)
                         }
+                        ref={listRef}
                         scrollKey="playlists"
                         serverId={serverId}
+                    />
+                )}
+                {totalCount > RIBBON_MIN_TOTAL_COUNT && (
+                    <AlphaRibbon
+                        buckets={buckets}
+                        estimate={estimate}
+                        onScrollToIndex={(index, options) =>
+                            listRef.current?.scrollToIndex(index, options)
+                        }
+                        resolve={resolve}
                     />
                 )}
             </Flex>
