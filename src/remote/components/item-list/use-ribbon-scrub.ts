@@ -149,22 +149,29 @@ export const useRibbonScrub = ({
     );
 
     const endScrub = useCallback(() => {
+        const bucket = activeBucketRef.current;
+
+        // Already ended. `lostpointercapture` always fires after the capture
+        // is released in `onPointerUp`, so every normal release reaches here
+        // twice — bumping the generation again on the second pass would mark
+        // the release resolve below as stale and drop the exact final scroll.
+        if (bucket === null) {
+            return;
+        }
+
         clearDebounce();
         scrubGenerationRef.current += 1;
         const generation = scrubGenerationRef.current;
-        const bucket = activeBucketRef.current;
 
-        if (bucket) {
-            resolve(bucket)
-                .then((index) => {
-                    if (scrubGenerationRef.current === generation) {
-                        onScrollToIndex(index, { align: 'top', behavior: 'auto' });
-                    }
-                })
-                .catch((error) => {
-                    logger.debug('Ribbon end-scrub resolve failed', { bucket, error });
-                });
-        }
+        resolve(bucket)
+            .then((index) => {
+                if (scrubGenerationRef.current === generation) {
+                    onScrollToIndex(index, { align: 'top', behavior: 'auto' });
+                }
+            })
+            .catch((error) => {
+                logger.debug('Ribbon end-scrub resolve failed', { bucket, error });
+            });
 
         setIsScrubbing(false);
         setActiveBucket(null);
