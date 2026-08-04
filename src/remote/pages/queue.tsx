@@ -23,6 +23,12 @@ import { RemoteQueueEntry } from '/@/shared/types/remote-types';
 const LARGE_QUEUE_LOG_THRESHOLD = 500;
 
 interface DragState {
+    // The last target index computed from a pointermove. endDrag uses THIS
+    // rather than recomputing from the terminating event's clientY, because
+    // lostpointercapture / pointercancel (which also end a drag on iOS) carry a
+    // stale/0 clientY that would clamp the target to 0 and warp the row to the
+    // top of the queue.
+    lastTarget: number;
     pointerId: number;
     snapshot: RemoteQueueEntry[];
     startIndex: number;
@@ -133,6 +139,7 @@ export const QueuePage = () => {
             event.currentTarget.setPointerCapture(event.pointerId);
             draggingRef.current = true;
             dragStateRef.current = {
+                lastTarget: index,
                 pointerId: event.pointerId,
                 snapshot: entries,
                 startIndex: index,
@@ -179,6 +186,7 @@ export const QueuePage = () => {
             if (!drag || event.pointerId !== drag.pointerId) return;
 
             const { deltaY, rawTarget } = computeDragTarget(drag, event.clientY);
+            drag.lastTarget = rawTarget;
 
             setEntries(buildPreview(drag, rawTarget));
             setDragOffsetY(deltaY - (rawTarget - drag.startIndex) * QUEUE_ROW_HEIGHT);
@@ -200,7 +208,10 @@ export const QueuePage = () => {
             let moveSent = false;
 
             if (drag.snapshot.length > 1) {
-                const { rawTarget } = computeDragTarget(drag, event.clientY);
+                // Use the last target from pointermove, NOT the terminating
+                // event's clientY (lostpointercapture/pointercancel report a
+                // stale/0 clientY, which clamps to 0 and warps the row to top).
+                const rawTarget = drag.lastTarget;
 
                 if (rawTarget !== drag.startIndex) {
                     const finalOrder = buildPreview(drag, rawTarget);
@@ -223,7 +234,7 @@ export const QueuePage = () => {
                 if (latest) setEntries(latest.entries);
             }
         },
-        [buildPreview, computeDragTarget, queueMove],
+        [buildPreview, queueMove],
     );
 
     const handleSwipeDelete = useCallback(
