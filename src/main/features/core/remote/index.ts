@@ -15,6 +15,7 @@ import log from '/@/main/logger';
 import { QueueSong } from '/@/shared/types/domain-types';
 import {
     ClientEvent,
+    RemoteAutoDj,
     RemoteServer,
     RemoteTheme,
     ServerEvent,
@@ -94,6 +95,7 @@ function sendInitialState(client: StatefulWebSocket): void {
     });
     send({ client, data: currentQueue, event: 'queue' });
     send({ client, data: currentTheme, event: 'theme' });
+    send({ client, data: currentAutoDj, event: 'autoDj' });
 }
 
 export const shutdownServer = () => {
@@ -135,6 +137,7 @@ const ZLIB_REGEX = /bdeflate\b/;
 const currentState: SongState = {};
 let currentServer: null | RemoteServer = null;
 let currentTheme: null | RemoteTheme = null;
+let currentAutoDj: null | RemoteAutoDj = null;
 let currentQueue: ServerQueue['data'] = {
     currentIndex: -1,
     currentUniqueId: null,
@@ -484,6 +487,11 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
                         }
 
                         switch (event) {
+                            case 'autoDjSet': {
+                                const { settings } = json;
+                                getMainWindow()?.webContents.send('request-autodj-set', settings);
+                                break;
+                            }
                             case 'favorite': {
                                 const { favorite, id } = json;
                                 if (id && id === currentState.song?.id) {
@@ -792,6 +800,11 @@ ipcMain.on('update-server', (_event, server: null | RemoteServer) => {
 ipcMain.on('update-theme', (_event, theme: null | RemoteTheme) => {
     currentTheme = theme;
     broadcast({ data: currentTheme, event: 'theme' });
+});
+
+ipcMain.on('update-autodj', (_event, autoDj: null | RemoteAutoDj) => {
+    currentAutoDj = autoDj;
+    broadcast({ data: currentAutoDj, event: 'autoDj' });
 });
 
 ipcMain.on('update-volume', (_event, volume: number) => {

@@ -1,8 +1,12 @@
 import { ipcRenderer } from 'electron';
 
 import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
-import { RemoteServer, RemoteTheme, ServerQueue } from '/@/shared/types/remote-types';
+import { RemoteAutoDj, RemoteServer, RemoteTheme, ServerQueue } from '/@/shared/types/remote-types';
 import { Play, PlayerStatus } from '/@/shared/types/types';
+
+const requestAutoDjSet = (cb: (settings: Partial<RemoteAutoDj>) => void) => {
+    ipcRenderer.on('request-autodj-set', (_, data) => cb(data));
+};
 
 const requestFavorite = (
     cb: (data: { favorite: boolean; id: string; serverId: string }) => void,
@@ -58,6 +62,10 @@ const setRemoteEnabled = (enabled: boolean): Promise<null | string> => {
 const setRemotePort = (port: number): Promise<null | string> => {
     const result = ipcRenderer.invoke('remote-port', port);
     return result;
+};
+
+const updateAutoDj = (data: null | RemoteAutoDj) => {
+    ipcRenderer.send('update-autodj', data);
 };
 
 const updateFavorite = (favorite: boolean, serverId: string, ids: string[]) => {
@@ -122,6 +130,7 @@ const updatePosition = (timeSec: number) => {
 };
 
 export const remote = {
+    requestAutoDjSet,
     requestFavorite,
     requestPosition,
     requestQueueAdd,
@@ -134,6 +143,7 @@ export const remote = {
     requestVolume,
     setRemoteEnabled,
     setRemotePort,
+    updateAutoDj,
     updateFavorite,
     updatePassword,
     updatePlayback,

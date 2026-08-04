@@ -6,8 +6,14 @@ export interface ClientAuth {
     header: string;
 }
 
+export interface ClientAutoDjSet {
+    event: 'autoDjSet';
+    settings: Partial<RemoteAutoDj>;
+}
+
 export type ClientEvent =
     | ClientAuth
+    | ClientAutoDjSet
     | ClientFavorite
     | ClientPosition
     | ClientQueueAdd
@@ -78,6 +84,12 @@ export interface ClientVolume {
     volume: number;
 }
 
+export interface RemoteAutoDj {
+    contrast: number;
+    enabled: boolean;
+    mode: 'albums' | 'songs';
+}
+
 export interface RemoteQueueEntry {
     album: null | string;
     albumId: null | string;
@@ -101,6 +113,11 @@ export interface RemoteTheme {
     useThemePrimaryShade: boolean;
 }
 
+export interface ServerAutoDj {
+    data: null | RemoteAutoDj;
+    event: 'autoDj';
+}
+
 export interface ServerCurrentServer {
     data: null | RemoteServer;
     event: 'server';
@@ -112,6 +129,7 @@ export interface ServerError {
 }
 
 export type ServerEvent =
+    | ServerAutoDj
     | ServerCurrentServer
     | ServerError
     | ServerFavorite

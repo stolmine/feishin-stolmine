@@ -17,6 +17,7 @@ import {
 } from '/@/shared/types/domain-types';
 import {
     ClientEvent,
+    RemoteAutoDj,
     RemoteTheme,
     ServerEvent,
     ServerQueue,
@@ -41,6 +42,7 @@ export interface SettingsSlice extends SettingsState {
         queueRequest: () => void;
         reconnect: () => void;
         send: (data: ClientEvent) => void;
+        setAutoDj: (settings: Partial<RemoteAutoDj>) => void;
         setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => void;
         setSort: (key: RemoteListKey, sort: RemoteSort) => void;
         toggleIsDark: () => void;
@@ -49,6 +51,7 @@ export interface SettingsSlice extends SettingsState {
 }
 
 interface SettingsState {
+    autoDj: null | RemoteAutoDj;
     connected: boolean;
     hasLibraryAccess: boolean;
     info: Omit<SongUpdateSocket, 'currentTime'>;
@@ -93,6 +96,7 @@ const scheduleReconnect = (reconnect: () => void) => {
 };
 
 const initialState: SettingsState = {
+    autoDj: null,
     connected: false,
     hasLibraryAccess: false,
     info: {},
@@ -192,6 +196,17 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                 logger.debug('WebSocket message received', { data, event });
 
                                 switch (event) {
+                                    case 'autoDj': {
+                                        logger.debug('AutoDJ event received', {
+                                            contrast: data?.contrast,
+                                            enabled: data?.enabled,
+                                            mode: data?.mode,
+                                        });
+                                        set((state) => {
+                                            state.autoDj = data;
+                                        });
+                                        break;
+                                    }
                                     case 'error': {
                                         logger.error('WebSocket error event', { data });
                                         toast.error({ message: data, title: 'Socket error' });
@@ -394,7 +409,7 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                         code: reason.code,
                                         reason: reason.reason,
                                     });
-                                    set({ connected: false, info: {}, queue: null });
+                                    set({ autoDj: null, connected: false, info: {}, queue: null });
                                     scheduleReconnect(() => get().actions.reconnect());
                                 }
                             });
@@ -427,6 +442,9 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                             toast.warn({ message: 'Reconnecting to Feishin…' });
                             get().actions.reconnect();
                         }
+                    },
+                    setAutoDj: (settings: Partial<RemoteAutoDj>) => {
+                        get().actions.send({ event: 'autoDjSet', settings });
                     },
                     setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => {
                         set((state) => {
@@ -470,6 +488,10 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
         },
     ),
 );
+
+export const useAutoDj = () => useRemoteStore((state) => state.autoDj);
+
+export const useSetAutoDj = () => useRemoteStore((state) => state.actions.setAutoDj);
 
 export const useConnected = () => useRemoteStore((state) => state.connected);
 

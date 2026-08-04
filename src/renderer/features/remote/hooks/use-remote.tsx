@@ -13,9 +13,11 @@ import {
     mapShuffledToQueueIndex,
     subscribeCurrentTrack,
     subscribePlayerQueue,
+    useAutoDJSettings,
     usePlayerActions,
     usePlayerStore,
     useRemoteSettings,
+    useSettingsStoreActions,
 } from '/@/renderer/store';
 import { useCurrentServerWithCredential } from '/@/renderer/store/auth.store';
 import { useAccent, useThemeSettings } from '/@/renderer/store/settings.store';
@@ -23,6 +25,7 @@ import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
 import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
 import {
+    RemoteAutoDj,
     RemoteQueueEntry,
     RemoteServer,
     RemoteTheme,
@@ -46,6 +49,8 @@ export const useRemote = () => {
     const playerContext = usePlayer();
 
     const remoteSettings = useRemoteSettings();
+    const autoDJSettings = useAutoDJSettings();
+    const { setSettings } = useSettingsStoreActions();
     const setRating = useSetRating();
     const addToFavoritesMutation = useCreateFavorite({});
     const removeFromFavoritesMutation = useDeleteFavorite({});
@@ -185,6 +190,11 @@ export const useRemote = () => {
             clearQueue();
         });
 
+        remote.requestAutoDjSet((settings: Partial<RemoteAutoDj>) => {
+            logger.debug('Request AutoDJ set received', { settings });
+            setSettings({ autoDJ: settings });
+        });
+
         return () => {
             ipc?.removeAllListeners('request-position');
             ipc?.removeAllListeners('request-seek');
@@ -196,6 +206,7 @@ export const useRemote = () => {
             ipc?.removeAllListeners('request-queue-remove');
             ipc?.removeAllListeners('request-queue-move');
             ipc?.removeAllListeners('request-queue-clear');
+            ipc?.removeAllListeners('request-autodj-set');
         };
     }, [
         addToFavoritesMutation,
@@ -208,6 +219,7 @@ export const useRemote = () => {
         player,
         playerContext,
         removeFromFavoritesMutation,
+        setSettings,
         setVolume,
         setRating,
     ]);
@@ -318,6 +330,23 @@ export const useRemote = () => {
         useThemeAccentColor,
         useThemePrimaryShade,
     ]);
+
+    // Push the current AutoDJ settings (enabled/contrast/mode) on connect and
+    // whenever they change, mirroring the theme push above.
+    useEffect(() => {
+        if (!isRemoteEnabled || !remote) {
+            return;
+        }
+
+        const payload: RemoteAutoDj = {
+            contrast: autoDJSettings.contrast,
+            enabled: autoDJSettings.enabled,
+            mode: autoDJSettings.mode,
+        };
+
+        logger.debug('Sending current AutoDJ settings', payload);
+        remote.updateAutoDj(payload);
+    }, [autoDJSettings.contrast, autoDJSettings.enabled, autoDJSettings.mode, isRemoteEnabled]);
 
     // Push a slim queue snapshot whenever the queue, current track, or shuffle
     // state changes. Reorders fire bursts of updates, so this is debounced.

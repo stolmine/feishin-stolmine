@@ -1,9 +1,11 @@
-import { RiPlayListLine, RiSettings3Line } from 'react-icons/ri';
+import { useState } from 'react';
+import { RiPlayListLine, RiRobot2Line, RiSettings3Line } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
+import { AutoDjPanel } from '/@/remote/components/autodj-panel';
 import { PageHeader } from '/@/remote/components/page-header';
 import { RemoteContainer } from '/@/remote/components/remote-container';
-import { useConnected, useInfo, useSend } from '/@/remote/store';
+import { useAutoDj, useConnected, useInfo, useSend } from '/@/remote/store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Center } from '/@/shared/components/center/center';
 import { Flex } from '/@/shared/components/flex/flex';
@@ -15,6 +17,8 @@ export const NowPlayingPage = () => {
     const navigate = useNavigate();
     const { song } = useInfo();
     const send = useSend();
+    const autoDj = useAutoDj();
+    const [autoDjOpened, setAutoDjOpened] = useState(false);
 
     const id = song?.id;
 
@@ -41,6 +45,17 @@ export const NowPlayingPage = () => {
                             }}
                             variant="subtle"
                         />
+                        <ActionIcon
+                            onClick={() => setAutoDjOpened(true)}
+                            size="md"
+                            tooltip={{ label: 'AutoDJ' }}
+                            variant="subtle"
+                        >
+                            <RiRobot2Line
+                                color={autoDj?.enabled ? 'var(--theme-colors-primary)' : undefined}
+                                size={22}
+                            />
+                        </ActionIcon>
                         <ActionIcon
                             onClick={() => navigate('/queue')}
                             size="md"
@@ -83,6 +98,7 @@ export const NowPlayingPage = () => {
                     </Center>
                 )}
             </div>
+            <AutoDjPanel onClose={() => setAutoDjOpened(false)} opened={autoDjOpened} />
         </Flex>
     );
 };
