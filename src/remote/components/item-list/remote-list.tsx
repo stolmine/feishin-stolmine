@@ -1,5 +1,5 @@
 import { memo, ReactElement, Ref, useImperativeHandle, useMemo } from 'react';
-import { RiArrowRightSLine } from 'react-icons/ri';
+import { RiArrowRightSLine, RiHeartFill } from 'react-icons/ri';
 import { List, RowComponentProps, useListRef } from 'react-window-v2';
 
 import { CoverImage } from '/@/remote/components/item-list/cover-image';
@@ -96,6 +96,7 @@ const RemoteListRow = memo(
                         </Text>
                     )}
                 </div>
+                {item.favorite && <RiHeartFill color="var(--theme-colors-primary)" size={16} />}
                 <RiArrowRightSLine color="var(--theme-colors-foreground-muted)" size={20} />
             </div>
         );

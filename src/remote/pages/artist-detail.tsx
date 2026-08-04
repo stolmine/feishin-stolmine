@@ -24,6 +24,7 @@ import { Album, AlbumListSort, LibraryItem, SortOrder } from '/@/shared/types/do
 import { Play } from '/@/shared/types/types';
 
 const albumToRowData = (album: Album): RowData => ({
+    favorite: album.userFavorite,
     id: album.id,
     imageId: album.imageId,
     subtitle: album.releaseYear ? String(album.releaseYear) : undefined,

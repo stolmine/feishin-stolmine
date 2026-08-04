@@ -23,6 +23,7 @@ import { LibraryItem, Song } from '/@/shared/types/domain-types';
 import { Play } from '/@/shared/types/types';
 
 const songToRowData = (song: Song): RowData => ({
+    favorite: song.userFavorite,
     id: song.id,
     imageId: song.imageId,
     subtitle: song.artistName,

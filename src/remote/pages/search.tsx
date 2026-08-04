@@ -25,6 +25,7 @@ const SEARCH_ALBUM_LIMIT = 10;
 const SEARCH_ARTIST_LIMIT = 10;
 
 const songToRowData = (song: Song): RowData => ({
+    favorite: song.userFavorite,
     id: song.id,
     imageId: song.imageId,
     subtitle: song.album ? `${song.artistName} — ${song.album}` : song.artistName,
@@ -32,6 +33,7 @@ const songToRowData = (song: Song): RowData => ({
 });
 
 const albumToRowData = (album: Album): RowData => ({
+    favorite: album.userFavorite,
     id: album.id,
     imageId: album.imageId,
     subtitle: album.albumArtistName,

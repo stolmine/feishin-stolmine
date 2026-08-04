@@ -17,6 +17,7 @@ export interface RemoteListScrollOptions {
 }
 
 export interface RowData {
+    favorite?: boolean;
     id: string;
     imageId?: null | string;
     imageUrl?: null | string;

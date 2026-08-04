@@ -33,6 +33,7 @@ const PAGE_SIZE = 100;
 const RIBBON_MIN_TOTAL_COUNT = 40;
 
 const albumToRowData = (album: Album): RowData => ({
+    favorite: album.userFavorite,
     id: album.id,
     imageId: album.imageId,
     subtitle: album.albumArtistName,

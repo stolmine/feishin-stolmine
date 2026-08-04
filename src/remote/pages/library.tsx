@@ -25,6 +25,7 @@ const PAGE_SIZE = 100;
 const RIBBON_MIN_TOTAL_COUNT = 40;
 
 const songToRowData = (song: Song): RowData => ({
+    favorite: song.userFavorite,
     id: song.id,
     imageId: song.imageId,
     subtitle: song.album ? `${song.artistName} — ${song.album}` : song.artistName,

@@ -1,4 +1,5 @@
 import { memo, ReactElement, Ref, useImperativeHandle, useMemo } from 'react';
+import { RiHeartFill } from 'react-icons/ri';
 import { List, RowComponentProps, useListRef } from 'react-window-v2';
 
 import { CoverImage } from '/@/remote/components/item-list/cover-image';
@@ -80,12 +81,31 @@ const RemoteGridCard = memo(
                     WebkitTouchCallout: 'none',
                 }}
             >
-                <CoverImage
-                    alt={item.title}
-                    borderRadius={8}
-                    imageId={item.imageId}
-                    serverId={serverId}
-                />
+                <div style={{ position: 'relative' }}>
+                    <CoverImage
+                        alt={item.title}
+                        borderRadius={8}
+                        imageId={item.imageId}
+                        serverId={serverId}
+                    />
+                    {item.favorite && (
+                        <div
+                            style={{
+                                alignItems: 'center',
+                                background: 'rgba(0, 0, 0, 0.45)',
+                                borderRadius: '50%',
+                                bottom: 6,
+                                display: 'flex',
+                                justifyContent: 'center',
+                                padding: 4,
+                                position: 'absolute',
+                                right: 6,
+                            }}
+                        >
+                            <RiHeartFill color="var(--theme-colors-primary)" size={14} />
+                        </div>
+                    )}
+                </div>
                 <Text fw={500} lineClamp={1} size="sm">
                     {item.title}
                 </Text>

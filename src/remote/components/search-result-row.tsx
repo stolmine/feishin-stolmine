@@ -1,4 +1,4 @@
-import { RiArrowRightSLine } from 'react-icons/ri';
+import { RiArrowRightSLine, RiHeartFill } from 'react-icons/ri';
 
 import { CoverImage } from '/@/remote/components/item-list/cover-image';
 import { RowData } from '/@/remote/components/item-list/types';
@@ -54,6 +54,7 @@ export const SearchResultRow = ({
                     </Text>
                 )}
             </div>
+            {row.favorite && <RiHeartFill color="var(--theme-colors-primary)" size={16} />}
             <RiArrowRightSLine color="var(--theme-colors-foreground-muted)" size={20} />
         </div>
     );
