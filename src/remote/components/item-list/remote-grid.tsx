@@ -9,6 +9,7 @@ import {
     RowData,
 } from '/@/remote/components/item-list/types';
 import { useLongPress } from '/@/remote/components/item-list/use-long-press';
+import { useScrollRestoration } from '/@/remote/components/item-list/use-scroll-restoration';
 import { Skeleton } from '/@/shared/components/skeleton/skeleton';
 import { Text } from '/@/shared/components/text/text';
 import { useElementSize } from '/@/shared/hooks/use-element-size';
@@ -153,6 +154,7 @@ RemoteGridRow.displayName = 'RemoteGridRow';
 
 interface RemoteGridProps extends RemoteItemListProps {
     ref?: Ref<RemoteListHandle>;
+    scrollKey?: string;
     serverId: string;
 }
 
@@ -163,10 +165,17 @@ export const RemoteGrid = ({
     onPress,
     onRangeChanged,
     ref,
+    scrollKey,
     serverId,
 }: RemoteGridProps) => {
     const { ref: sizeRef, width } = useElementSize();
     const listRef = useListRef(null);
+
+    useScrollRestoration({
+        getElement: () => listRef.current?.element,
+        ready: width > 0 && itemCount > 0,
+        scrollKey,
+    });
 
     const columns = getColumnCount(width);
     const rowCount = Math.ceil(itemCount / columns);

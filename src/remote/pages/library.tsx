@@ -260,6 +260,7 @@ export const LibraryPage = () => {
                         onRangeChanged={({ startIndex, stopIndex }) =>
                             ensureRange(startIndex, stopIndex)
                         }
+                        scrollKey="library"
                         serverId={serverId}
                     />
                 ) : isSearchLoading ? (

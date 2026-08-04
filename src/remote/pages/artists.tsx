@@ -140,6 +140,7 @@ export const ArtistsPage = () => {
                         onRangeChanged={({ startIndex, stopIndex }) =>
                             ensureRange(startIndex, stopIndex)
                         }
+                        scrollKey="artists"
                         serverId={serverId}
                     />
                 ) : (
@@ -151,6 +152,7 @@ export const ArtistsPage = () => {
                         onRangeChanged={({ startIndex, stopIndex }) =>
                             ensureRange(startIndex, stopIndex)
                         }
+                        scrollKey="artists"
                         serverId={serverId}
                     />
                 )}

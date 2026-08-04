@@ -10,6 +10,7 @@ import {
     RowData,
 } from '/@/remote/components/item-list/types';
 import { useLongPress } from '/@/remote/components/item-list/use-long-press';
+import { useScrollRestoration } from '/@/remote/components/item-list/use-scroll-restoration';
 import { Skeleton } from '/@/shared/components/skeleton/skeleton';
 import { Text } from '/@/shared/components/text/text';
 
@@ -101,6 +102,7 @@ RemoteListRow.displayName = 'RemoteListRow';
 interface RemoteListProps extends RemoteItemListProps {
     ref?: Ref<RemoteListHandle>;
     rowHeight?: number;
+    scrollKey?: string;
     serverId: string;
 }
 
@@ -112,9 +114,16 @@ export const RemoteList = ({
     onRangeChanged,
     ref,
     rowHeight = DEFAULT_ROW_HEIGHT,
+    scrollKey,
     serverId,
 }: RemoteListProps) => {
     const listRef = useListRef(null);
+
+    useScrollRestoration({
+        getElement: () => listRef.current?.element,
+        ready: itemCount > 0,
+        scrollKey,
+    });
 
     const rowProps = useMemo<RemoteListRowProps>(
         () => ({ getItem, onLongPress, onPress, serverId }),
