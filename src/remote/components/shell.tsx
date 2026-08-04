@@ -1,4 +1,4 @@
-import { AppShell, Flex, Image } from '@mantine/core';
+import { AppShell } from '@mantine/core';
 import { Outlet } from 'react-router';
 
 import { TabBar } from '/@/remote/components/tab-bar';
@@ -6,11 +6,6 @@ import { TabBar } from '/@/remote/components/tab-bar';
 export const Shell = () => {
     return (
         <AppShell h="100vh" padding={0} w="100vw">
-            <AppShell.Header style={{ background: 'var(--theme-colors-surface)' }}>
-                <Flex align="center" h="100%" justify="center" px="md">
-                    <Image fit="contain" height={32} src="/favicon.ico" width={32} />
-                </Flex>
-            </AppShell.Header>
             <AppShell.Main
                 style={{
                     boxSizing: 'border-box',
@@ -22,7 +17,9 @@ export const Shell = () => {
                     height: '100dvh',
                     overflow: 'hidden',
                     paddingBottom: 'calc(56px + env(safe-area-inset-bottom))',
-                    paddingTop: '60px',
+                    // No logo header — content starts near the top edge with a
+                    // tasteful margin that clears the device status bar / notch.
+                    paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
                 }}
             >
                 <Outlet />
