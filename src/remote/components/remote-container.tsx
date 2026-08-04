@@ -26,7 +26,12 @@ export const RemoteContainer = () => {
     const navigate = useNavigate();
 
     const id = song?.id;
-    const artistId = song?.artists?.[0]?.id ?? song?.albumArtists?.[0]?.id;
+    // `/artists/:id` renders the album-artist detail page, so prefer the
+    // album-artist id over the (possibly featured/track-only) track artist
+    // id, and skip empty-string ids so an empty page can't be linked to.
+    const artistId = [song?.albumArtists?.[0]?.id, song?.artists?.[0]?.id].find(
+        (candidate): candidate is string => Boolean(candidate),
+    );
 
     return (
         <Stack gap="md" h="100%" px="lg" py="sm" style={{ overflow: 'hidden' }} w="100%">

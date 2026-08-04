@@ -114,8 +114,18 @@ export const QueuePage = () => {
     }, [currentUniqueId]);
 
     const handlePress = useCallback(
-        (entry: RemoteQueueEntry) => queuePlay(entry.uniqueId),
-        [queuePlay],
+        (entry: RemoteQueueEntry) => {
+            // A tap anywhere while a swipe row is open just dismisses it — it
+            // must not also play whatever row happened to be tapped. A second,
+            // separate tap plays normally once the swipe is closed.
+            if (openSwipeUniqueId !== null) {
+                setOpenSwipeUniqueId(null);
+                return;
+            }
+
+            queuePlay(entry.uniqueId);
+        },
+        [openSwipeUniqueId, queuePlay],
     );
 
     const handleDragPointerDown = useCallback(

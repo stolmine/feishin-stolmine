@@ -1,4 +1,11 @@
-import { PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from 'react';
+import {
+    MouseEvent as ReactMouseEvent,
+    PointerEvent as ReactPointerEvent,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from 'react';
 
 // Past this many px of combined movement, a gesture commits to a direction
 // (horizontal swipe vs vertical scroll) and never re-evaluates — this avoids
@@ -7,6 +14,13 @@ const SWIPE_SLOP_PX = 8;
 // Fraction of the full reveal width the drag must cross before release snaps
 // the row open instead of springing back closed.
 const SWIPE_OPEN_THRESHOLD_RATIO = 0.4;
+// Mouse/trackpad/pen pointers still dispatch a trailing synthetic `click`
+// after pointerup even when that pointerup ended a horizontal drag (touch
+// usually suppresses it). This is a fallback-only safety net in case that
+// trailing click never arrives (e.g. it was already consumed some other
+// way) so the suppression flag can't get stuck true and swallow a later,
+// genuine tap.
+const SUPPRESS_CLICK_FALLBACK_MS = 500;
 
 interface GestureState {
     baseOffset: number;
@@ -31,6 +45,34 @@ export const useRowSwipe = ({ isOpen, onOpenChange, revealWidth }: UseRowSwipeOp
     const [offsetX, setOffsetX] = useState(() => (isOpen ? -revealWidth : 0));
     const [isDragging, setIsDragging] = useState(false);
     const gestureRef = useRef<GestureState | null>(null);
+    // Set whenever a gesture locks to `horizontal` (whether it ends up
+    // opening the row or springing back closed) so the trailing synthetic
+    // `click` that browsers dispatch after such a drag can be swallowed
+    // instead of reaching the row's tap-to-play handler.
+    const suppressClickRef = useRef(false);
+    const suppressClickTimeoutRef = useRef<null | ReturnType<typeof setTimeout>>(null);
+
+    const armClickSuppression = useCallback(() => {
+        suppressClickRef.current = true;
+
+        if (suppressClickTimeoutRef.current !== null) {
+            clearTimeout(suppressClickTimeoutRef.current);
+        }
+
+        suppressClickTimeoutRef.current = setTimeout(() => {
+            suppressClickRef.current = false;
+            suppressClickTimeoutRef.current = null;
+        }, SUPPRESS_CLICK_FALLBACK_MS);
+    }, []);
+
+    useEffect(
+        () => () => {
+            if (suppressClickTimeoutRef.current !== null) {
+                clearTimeout(suppressClickTimeoutRef.current);
+            }
+        },
+        [],
+    );
 
     // Snap to the controlled `isOpen` value whenever it changes from outside
     // (another row opened, or this row's own release just closed/opened it)
@@ -92,6 +134,7 @@ export const useRowSwipe = ({ isOpen, onOpenChange, revealWidth }: UseRowSwipeOp
             if (gesture.direction !== 'horizontal') return;
 
             setIsDragging(false);
+            armClickSuppression();
 
             const dx = event.clientX - gesture.startX;
             const finalOffset = Math.min(0, Math.max(-revealWidth, gesture.baseOffset + dx));
@@ -100,7 +143,7 @@ export const useRowSwipe = ({ isOpen, onOpenChange, revealWidth }: UseRowSwipeOp
             setOffsetX(shouldOpen ? -revealWidth : 0);
             onOpenChange(shouldOpen);
         },
-        [onOpenChange, revealWidth],
+        [armClickSuppression, onOpenChange, revealWidth],
     );
 
     const onPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -119,7 +162,29 @@ export const useRowSwipe = ({ isOpen, onOpenChange, revealWidth }: UseRowSwipeOp
         setIsDragging(false);
     }, []);
 
+    // Wraps the row's tap handler so a click that trails a horizontal swipe
+    // (release-triggered, whether it opened the row or sprang back closed)
+    // never reaches it. A genuine tap — no gesture ever locked horizontal —
+    // passes straight through to `onTap`.
+    const handleClick = useCallback((event: ReactMouseEvent<HTMLDivElement>, onTap: () => void) => {
+        if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+
+            if (suppressClickTimeoutRef.current !== null) {
+                clearTimeout(suppressClickTimeoutRef.current);
+                suppressClickTimeoutRef.current = null;
+            }
+
+            event.stopPropagation();
+            event.preventDefault();
+            return;
+        }
+
+        onTap();
+    }, []);
+
     return {
+        handleClick,
         handlers: {
             onLostPointerCapture,
             onPointerCancel,

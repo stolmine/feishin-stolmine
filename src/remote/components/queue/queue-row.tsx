@@ -1,5 +1,5 @@
 import formatDuration from 'format-duration';
-import { memo, PointerEvent, Ref, useCallback } from 'react';
+import { memo, MouseEvent, PointerEvent, Ref, useCallback } from 'react';
 import {
     RiArrowRightDoubleLine,
     RiDeleteBinLine,
@@ -79,6 +79,7 @@ export const QueueRow = memo(function QueueRow({
     );
 
     const {
+        handleClick: handleSwipeAwareClick,
         handlers: swipeHandlers,
         isDragging: isSwiping,
         offsetX,
@@ -88,13 +89,18 @@ export const QueueRow = memo(function QueueRow({
         revealWidth: QUEUE_ROW_REVEAL_WIDTH,
     });
 
-    const handleClick = useCallback(() => {
+    const handleTap = useCallback(() => {
         if (isSwipeOpen) {
             onSwipeOpenChange(null);
             return;
         }
         onPress(entry);
     }, [entry, isSwipeOpen, onPress, onSwipeOpenChange]);
+
+    const handleClick = useCallback(
+        (event: MouseEvent<HTMLDivElement>) => handleSwipeAwareClick(event, handleTap),
+        [handleSwipeAwareClick, handleTap],
+    );
 
     const handleDelete = useCallback(() => {
         onSwipeOpenChange(null);
@@ -136,6 +142,7 @@ export const QueueRow = memo(function QueueRow({
                     }}
                 >
                     <button
+                        aria-hidden={!isSwipeOpen}
                         onClick={handleNext}
                         style={{
                             alignItems: 'center',
@@ -147,14 +154,17 @@ export const QueueRow = memo(function QueueRow({
                             flexDirection: 'column',
                             gap: 4,
                             justifyContent: 'center',
+                            pointerEvents: isSwipeOpen ? undefined : 'none',
                             width: SWIPE_ACTION_WIDTH,
                         }}
+                        tabIndex={isSwipeOpen ? 0 : -1}
                         type="button"
                     >
                         <RiSkipForwardLine size={20} />
                         <Text size="xs">Next</Text>
                     </button>
                     <button
+                        aria-hidden={!isSwipeOpen}
                         onClick={handleLast}
                         style={{
                             alignItems: 'center',
@@ -167,14 +177,17 @@ export const QueueRow = memo(function QueueRow({
                             flexDirection: 'column',
                             gap: 4,
                             justifyContent: 'center',
+                            pointerEvents: isSwipeOpen ? undefined : 'none',
                             width: SWIPE_ACTION_WIDTH,
                         }}
+                        tabIndex={isSwipeOpen ? 0 : -1}
                         type="button"
                     >
                         <RiArrowRightDoubleLine size={20} />
                         <Text size="xs">Last</Text>
                     </button>
                     <button
+                        aria-hidden={!isSwipeOpen}
                         onClick={handleDelete}
                         style={{
                             alignItems: 'center',
@@ -186,8 +199,10 @@ export const QueueRow = memo(function QueueRow({
                             flexDirection: 'column',
                             gap: 4,
                             justifyContent: 'center',
+                            pointerEvents: isSwipeOpen ? undefined : 'none',
                             width: SWIPE_ACTION_WIDTH,
                         }}
+                        tabIndex={isSwipeOpen ? 0 : -1}
                         type="button"
                     >
                         <RiDeleteBinLine size={20} />

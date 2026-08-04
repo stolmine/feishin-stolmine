@@ -18,14 +18,6 @@ export const NowPlayingPage = () => {
 
     const id = song?.id;
 
-    if (!connected) {
-        return (
-            <Center h="100%" w="100%">
-                <Spinner />
-            </Center>
-        );
-    }
-
     return (
         <Flex direction="column" h="100%" w="100%">
             <PageHeader
@@ -78,7 +70,13 @@ export const NowPlayingPage = () => {
                 </Text>
             </PageHeader>
             <div style={{ flex: 1, minHeight: 0 }}>
-                <RemoteContainer />
+                {connected ? (
+                    <RemoteContainer />
+                ) : (
+                    <Center h="100%" w="100%">
+                        <Spinner />
+                    </Center>
+                )}
             </div>
         </Flex>
     );
