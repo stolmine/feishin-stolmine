@@ -75,7 +75,6 @@ const RemoteGridCard = memo(
                     display: 'flex',
                     flex: 1,
                     flexDirection: 'column',
-                    gap: 6,
                     touchAction: 'pan-y',
                     userSelect: 'none',
                     WebkitTouchCallout: 'none',
@@ -106,14 +105,28 @@ const RemoteGridCard = memo(
                         </div>
                     )}
                 </div>
-                <Text fw={500} lineClamp={1} size="sm">
-                    {item.title}
-                </Text>
-                {item.subtitle && (
-                    <Text isMuted lineClamp={1} size="xs">
-                        {item.subtitle}
+                {/* Title + subtitle grouped tightly just under the artwork; the
+                    row's leftover height falls BELOW this block, so the visual
+                    break sits between the subtitle and the next row's artwork
+                    rather than between the title and subtitle. */}
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1,
+                        marginTop: 6,
+                        minWidth: 0,
+                    }}
+                >
+                    <Text fw={500} lineClamp={1} size="sm">
+                        {item.title}
                     </Text>
-                )}
+                    {item.subtitle && (
+                        <Text isMuted lineClamp={1} size="xs">
+                            {item.subtitle}
+                        </Text>
+                    )}
+                </div>
             </div>
         );
     },
