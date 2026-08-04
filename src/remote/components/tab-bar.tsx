@@ -4,7 +4,7 @@ import {
     RiHome5Line,
     RiMusic2Line,
     RiPlayListLine,
-    RiSettings3Line,
+    RiSearchLine,
     RiUser3Line,
 } from 'react-icons/ri';
 import { NavLink } from 'react-router';
@@ -32,13 +32,8 @@ const libraryTabs: TabConfig[] = [
     { icon: <RiUser3Line size={22} />, label: 'Artists', path: '/artists' },
     { icon: <RiAlbumLine size={22} />, label: 'Albums', path: '/albums' },
     { icon: <RiPlayListLine size={22} />, label: 'Playlists', path: '/playlists' },
+    { icon: <RiSearchLine size={22} />, label: 'Search', path: '/search' },
 ];
-
-const settingsTab: TabConfig = {
-    icon: <RiSettings3Line size={22} />,
-    label: 'Settings',
-    path: '/settings',
-};
 
 export const TabBar = () => {
     const hasLibraryAccess = useHasLibraryAccess();
@@ -46,9 +41,7 @@ export const TabBar = () => {
     // The tab bar stays visible even across a transient socket drop (the store
     // auto-reconnects); browsing works over direct HTTP, only queue actions need
     // the socket. Yanking navigation on every blip was jarring on mobile.
-    const tabs = hasLibraryAccess
-        ? [nowPlayingTab, ...libraryTabs, settingsTab]
-        : [nowPlayingTab, settingsTab];
+    const tabs = hasLibraryAccess ? [nowPlayingTab, ...libraryTabs] : [nowPlayingTab];
 
     return (
         <nav

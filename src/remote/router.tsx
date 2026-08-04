@@ -10,6 +10,7 @@ import { NowPlayingPage } from '/@/remote/pages/now-playing';
 import { PlaylistDetailPage } from '/@/remote/pages/playlist-detail';
 import { PlaylistsPage } from '/@/remote/pages/playlists';
 import { QueuePage } from '/@/remote/pages/queue';
+import { SearchPage } from '/@/remote/pages/search';
 import { SettingsPage } from '/@/remote/pages/settings';
 
 export const router = createHashRouter([
@@ -24,6 +25,7 @@ export const router = createHashRouter([
             { element: <PlaylistsPage />, path: 'playlists' },
             { element: <PlaylistDetailPage />, path: 'playlists/:id' },
             { element: <QueuePage />, path: 'queue' },
+            { element: <SearchPage />, path: 'search' },
             { element: <SettingsPage />, path: 'settings' },
         ],
         element: <Shell />,
