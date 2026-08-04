@@ -159,6 +159,8 @@ const getEncoding = (encoding: string | string[]): Encoding => {
 
 const cache = new Map<string, Map<Encoding, [number, Buffer]>>();
 
+const AUTH_COOKIE = 'feishin_remote_auth';
+
 function authorize(req: IncomingMessage): boolean {
     if (settings.username || settings.password) {
         // https://stackoverflow.com/questions/23616371/basic-http-authentication-with-node-and-express-4
@@ -166,10 +168,43 @@ function authorize(req: IncomingMessage): boolean {
         const authorization = req.headers.authorization?.split(' ')[1] || '';
         const [login, password] = Buffer.from(authorization, 'base64').toString().split(':');
 
-        return login === settings.username && password === settings.password;
+        if (login === settings.username && password === settings.password) {
+            return true;
+        }
+
+        // Cookie fallback: iOS does not persist HTTP Basic credentials across a
+        // standalone PWA's process being terminated, and often fails to present
+        // the auth dialog when the web app is revived from the background — the
+        // reload then dies at the 401 and the user sees a blank page until they
+        // kill and relaunch. The HttpOnly cookie set after a successful Basic
+        // login survives termination, so revival reloads authenticate silently.
+        // It carries exactly the credential Basic already sends in cleartext on
+        // every request, and stops matching as soon as the username or password
+        // changes.
+        return getAuthCookie(req) === expectedAuthToken();
     }
 
     return true;
+}
+
+function expectedAuthToken(): string {
+    return Buffer.from(`${settings.username}:${settings.password}`).toString('base64');
+}
+
+function getAuthCookie(req: IncomingMessage): null | string {
+    const cookies = req.headers.cookie;
+
+    if (!cookies) return null;
+
+    for (const part of cookies.split(';')) {
+        const [name, ...rest] = part.trim().split('=');
+
+        if (name === AUTH_COOKIE) {
+            return rest.join('=');
+        }
+    }
+
+    return null;
 }
 
 function isRemoteGateConfigured(): boolean {
@@ -322,6 +357,15 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
                     return;
                 }
 
+                if (isRemoteGateConfigured()) {
+                    // (Re-)issue the revival cookie on every authorized response so
+                    // its expiry keeps sliding while the remote is in use.
+                    res.setHeader(
+                        'Set-Cookie',
+                        `${AUTH_COOKIE}=${expectedAuthToken()}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000`,
+                    );
+                }
+
                 try {
                     switch (req.url) {
                         case '/': {
@@ -331,7 +375,10 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
                         case '/credentials': {
                             res.statusCode = 200;
                             res.setHeader('Content-Type', 'text/plain');
-                            res.end(req.headers.authorization);
+                            // The request may have been authorized via the revival
+                            // cookie (no Authorization header), so reconstruct the
+                            // Basic header instead of echoing the request's.
+                            res.end(isRemoteGateConfigured() ? `Basic ${expectedAuthToken()}` : '');
                             break;
                         }
                         case '/favicon.ico': {

@@ -157,8 +157,17 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
 
                         try {
                             logger.debug('Fetching credentials');
-                            const credentials = await fetch('/credentials');
-                            authHeader = await credentials.text();
+                            const credentials = await fetch('/credentials', { cache: 'no-store' });
+                            if (credentials.ok) {
+                                authHeader = await credentials.text();
+                            } else {
+                                // A 401 body ("Authorization required") must never be used
+                                // as the auth header — the server would reject it and close
+                                // the socket, producing an endless reconnect loop.
+                                logger.warn('Credentials request rejected', {
+                                    status: credentials.status,
+                                });
+                            }
                             logger.debug('Credentials fetched', { hasAuthHeader: !!authHeader });
                         } catch (error) {
                             logger.error('Failed to get credentials', { error });
@@ -507,18 +516,89 @@ export const useToggleShowImage = () => useRemoteStore((state) => state.actions.
 
 // Reconnect eagerly when the phone wakes / the tab is foregrounded again, or the
 // network comes back — mobile browsers routinely kill the socket while backgrounded.
+//
+// iOS standalone PWAs additionally freeze the JS context (timers included) while
+// backgrounded and may restore a stale page from the back/forward cache. If the
+// socket cannot be revived shortly after such a resume, the page itself is likely
+// defunct (stale closures, frozen worker state) and only a clean reload produces a
+// working app again — previously the user had to kill and relaunch by hand.
 if (typeof document !== 'undefined') {
-    const reconnectIfStale = () => {
+    // Backgrounded longer than this ⇒ assume iOS may have gutted the page and arm
+    // the reload fallback; short blips (app switcher, notification shade) rely on
+    // the plain reconnect alone.
+    const RESUME_STALE_MS = 30000;
+    // How long after resume the socket gets to come back before we force-reload.
+    const REVIVE_TIMEOUT_MS = 8000;
+
+    let hiddenAt: null | number = null;
+    let reviveTimer: null | ReturnType<typeof setTimeout> = null;
+    // At most one forced reload per resume — reset when the app is hidden again —
+    // so a down/unreachable desktop can never cause a reload loop.
+    let didForceReload = false;
+
+    const isSocketDead = () => {
         const state = useRemoteStore.getState();
         const socket = state.socket;
-        if (!state.connected || !socket || socket.readyState !== WebSocket.OPEN) {
-            state.actions.reconnect();
+        return !state.connected || !socket || socket.readyState !== WebSocket.OPEN;
+    };
+
+    const reconnectIfStale = () => {
+        if (isSocketDead()) {
+            useRemoteStore.getState().actions.reconnect();
+        }
+    };
+
+    const armRevivalWatchdog = () => {
+        if (didForceReload || reviveTimer) return;
+        reviveTimer = setTimeout(() => {
+            reviveTimer = null;
+            // Only reload a visible, still-dead page. If iOS froze this timer and
+            // resumed it while hidden, or the socket recovered, do nothing.
+            if (document.visibilityState === 'visible' && isSocketDead()) {
+                didForceReload = true;
+                logger.warn('Socket did not revive after resume, forcing reload');
+                location.reload();
+            }
+        }, REVIVE_TIMEOUT_MS);
+    };
+
+    const onResume = (viaBackForwardCache: boolean) => {
+        const hiddenFor = hiddenAt === null ? 0 : Date.now() - hiddenAt;
+        hiddenAt = null;
+        // Timers were frozen while backgrounded — restart the backoff from zero so
+        // the first retry after waking is immediate, not a leftover long delay.
+        reconnectAttempts = 0;
+        clearReconnect();
+        reconnectIfStale();
+
+        if (viaBackForwardCache || hiddenFor >= RESUME_STALE_MS) {
+            armRevivalWatchdog();
         }
     };
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            reconnectIfStale();
+            onResume(false);
+        } else {
+            hiddenAt = Date.now();
+            // New background cycle: allow one reload on the next resume, and
+            // disarm any watchdog from the previous one.
+            didForceReload = false;
+            if (reviveTimer) {
+                clearTimeout(reviveTimer);
+                reviveTimer = null;
+            }
+        }
+    });
+
+    // Fires when iOS restores the page from the back/forward cache instead of
+    // reloading it — the restored JS state (socket, timers) is stale by
+    // definition. A non-persisted pageshow is just a normal load: the App mount
+    // effect already reconnects, and skipping the watchdog there guarantees a
+    // forced reload cannot loop.
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            onResume(true);
         }
     });
 

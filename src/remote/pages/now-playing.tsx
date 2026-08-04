@@ -74,7 +74,12 @@ export const NowPlayingPage = () => {
                     <RemoteContainer />
                 ) : (
                     <Center h="100%" w="100%">
-                        <Spinner />
+                        <Flex align="center" direction="column" gap="sm">
+                            <Spinner />
+                            <Text isMuted size="sm">
+                                Connecting to Feishin…
+                            </Text>
+                        </Flex>
                     </Center>
                 )}
             </div>
