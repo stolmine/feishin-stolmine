@@ -76,6 +76,18 @@ function send({ client, data, event }: SendData): void {
     }
 }
 
+// Send the initial snapshot to a client. Must only be called AFTER the client is
+// authenticated (ws.auth === true) — the server event contains the music-server
+// credential and must never reach unauthenticated sockets.
+function sendInitialState(client: StatefulWebSocket): void {
+    send({ client, data: currentState, event: 'state' });
+    send({
+        client,
+        data: isRemoteGateConfigured() ? currentServer : null,
+        event: 'server',
+    });
+}
+
 export const shutdownServer = () => {
     if (wsServer || server) {
         log.info('Remote server shutting down');
@@ -366,6 +378,7 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
 
                 if (!settings.username && !settings.password) {
                     ws.auth = true;
+                    sendInitialState(ws);
                 } else {
                     authFail = setTimeout(() => {
                         if (!ws.auth) {
@@ -396,6 +409,7 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
                                 if (login === settings.username && password === settings.password) {
                                     ws.auth = true;
                                     log.info('Remote client authenticated');
+                                    sendInitialState(ws);
                                 } else {
                                     log.warn('Remote client auth failed');
                                     ws.close();
@@ -537,14 +551,6 @@ const enableServer = (config: RemoteConfig): Promise<void> => {
                 ws.on('pong', () => {
                     ws.alive = true;
                 });
-
-                ws.send(JSON.stringify({ data: currentState, event: 'state' }));
-                ws.send(
-                    JSON.stringify({
-                        data: isRemoteGateConfigured() ? currentServer : null,
-                        event: 'server',
-                    }),
-                );
             });
 
             const heartBeat = setInterval(() => {

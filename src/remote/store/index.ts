@@ -113,7 +113,13 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                         }
 
                         set((state) => {
-                            const wsUrl = location.href.replace('http', 'ws');
+                            // Build the socket URL from protocol + host only. Never derive it
+                            // from location.href: with hash routing the href contains a
+                            // fragment (e.g. http://host:4333/#/albums), and the WebSocket
+                            // constructor throws a SyntaxError for URLs with a fragment.
+                            const wsProtocol =
+                                window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                            const wsUrl = `${wsProtocol}//${window.location.host}/`;
                             logger.info('Creating new WebSocket', { url: wsUrl });
                             const socket = new WebSocket(wsUrl) as StatefulWebSocket;
 
@@ -350,7 +356,16 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
         {
             merge: (persistedState, currentState) => merge(currentState, persistedState),
             name: 'store_settings',
-            version: 8,
+            // Persist only durable UI settings. Connection state (connected,
+            // hasLibraryAccess, info, socket) must never be persisted — a stale
+            // "connected" flag from a previous session masks a dead socket and the
+            // UI pretends to be live without one.
+            partialize: (state) => ({
+                isDark: state.isDark,
+                lists: state.lists,
+                showImage: state.showImage,
+            }),
+            version: 9,
         },
     ),
 );
