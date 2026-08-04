@@ -5,9 +5,8 @@ import { useRibbonScrub } from '/@/remote/components/item-list/use-ribbon-scrub'
 import { Portal } from '/@/shared/components/portal/portal';
 import { Text } from '/@/shared/components/text/text';
 
-const RIBBON_WIDTH_PX = 22;
-const RIBBON_WIDTH_SCRUBBING_PX = 28;
-const HIT_AREA_WIDTH_PX = 44;
+export const RIBBON_COLUMN_WIDTH_PX = 34;
+
 const LABEL_ROW_HEIGHT_PX = 14;
 const BUBBLE_SIZE_PX = 56;
 const BUBBLE_GAP_PX = 12;
@@ -94,27 +93,20 @@ export const AlphaRibbon = ({ buckets, estimate, onScrollToIndex, resolve }: Alp
                 onPointerUp={onPointerUp}
                 ref={containerRef}
                 style={{
-                    bottom: 0,
+                    inset: 0,
                     position: 'absolute',
-                    right: 0,
-                    top: 0,
                     touchAction: 'none',
                     userSelect: 'none',
-                    width: HIT_AREA_WIDTH_PX,
                 }}
             >
                 <div
                     style={{
-                        alignItems: 'stretch',
-                        bottom: 0,
+                        alignItems: 'center',
                         display: 'flex',
                         flexDirection: 'column',
+                        inset: 0,
                         justifyContent: 'space-between',
                         position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        transition: 'width 120ms ease',
-                        width: isScrubbing ? RIBBON_WIDTH_SCRUBBING_PX : RIBBON_WIDTH_PX,
                     }}
                 >
                     {buckets.map((bucket, index) => {

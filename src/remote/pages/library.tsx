@@ -4,7 +4,7 @@ import { RiArrowRightSLine } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
 import { ActionSheet } from '/@/remote/components/action-sheet';
-import { AlphaRibbon } from '/@/remote/components/item-list/alpha-ribbon';
+import { AlphaRibbon, RIBBON_COLUMN_WIDTH_PX } from '/@/remote/components/item-list/alpha-ribbon';
 import { CoverImage } from '/@/remote/components/item-list/cover-image';
 import { RemoteList } from '/@/remote/components/item-list/remote-list';
 import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types';
@@ -274,34 +274,43 @@ export const LibraryPage = () => {
                 style={{
                     flex: 1,
                     minHeight: 0,
-                    position: isSearching ? undefined : 'relative',
                 }}
             >
                 {!isSearching ? (
-                    <>
-                        <RemoteList
-                            getItem={getRowData}
-                            itemCount={totalCount}
-                            onLongPress={handleSongLongPress}
-                            onPress={handleSongPress}
-                            onRangeChanged={({ startIndex, stopIndex }) =>
-                                ensureRange(startIndex, stopIndex)
-                            }
-                            ref={listRef}
-                            scrollKey="library"
-                            serverId={serverId}
-                        />
-                        {totalCount > RIBBON_MIN_TOTAL_COUNT && (
-                            <AlphaRibbon
-                                buckets={buckets}
-                                estimate={estimate}
-                                onScrollToIndex={(index, options) =>
-                                    listRef.current?.scrollToIndex(index, options)
+                    <Flex direction="row" style={{ flex: 1, minHeight: 0 }}>
+                        <Flex direction="column" style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+                            <RemoteList
+                                getItem={getRowData}
+                                itemCount={totalCount}
+                                onLongPress={handleSongLongPress}
+                                onPress={handleSongPress}
+                                onRangeChanged={({ startIndex, stopIndex }) =>
+                                    ensureRange(startIndex, stopIndex)
                                 }
-                                resolve={resolve}
+                                ref={listRef}
+                                scrollKey="library"
+                                serverId={serverId}
                             />
+                        </Flex>
+                        {totalCount > RIBBON_MIN_TOTAL_COUNT && (
+                            <div
+                                style={{
+                                    flexShrink: 0,
+                                    position: 'relative',
+                                    width: RIBBON_COLUMN_WIDTH_PX,
+                                }}
+                            >
+                                <AlphaRibbon
+                                    buckets={buckets}
+                                    estimate={estimate}
+                                    onScrollToIndex={(index, options) =>
+                                        listRef.current?.scrollToIndex(index, options)
+                                    }
+                                    resolve={resolve}
+                                />
+                            </div>
                         )}
-                    </>
+                    </Flex>
                 ) : isSearchLoading ? (
                     <Center h="100%" w="100%">
                         <Text isMuted>Searching…</Text>

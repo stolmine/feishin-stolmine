@@ -3,7 +3,7 @@ import { RiLayoutGridLine, RiListCheck2 } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
 import { ActionSheet } from '/@/remote/components/action-sheet';
-import { AlphaRibbon } from '/@/remote/components/item-list/alpha-ribbon';
+import { AlphaRibbon, RIBBON_COLUMN_WIDTH_PX } from '/@/remote/components/item-list/alpha-ribbon';
 import { RemoteGrid } from '/@/remote/components/item-list/remote-grid';
 import { RemoteList } from '/@/remote/components/item-list/remote-list';
 import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types';
@@ -129,43 +129,53 @@ export const AlbumsPage = () => {
                     )}
                 </ActionIcon>
             </Flex>
-            <Flex direction="column" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-                {display === 'grid' ? (
-                    <RemoteGrid
-                        getItem={getRowData}
-                        itemCount={totalCount}
-                        onLongPress={handleLongPress}
-                        onPress={handlePress}
-                        onRangeChanged={({ startIndex, stopIndex }) =>
-                            ensureRange(startIndex, stopIndex)
-                        }
-                        ref={listRef}
-                        scrollKey="albums"
-                        serverId={serverId}
-                    />
-                ) : (
-                    <RemoteList
-                        getItem={getRowData}
-                        itemCount={totalCount}
-                        onLongPress={handleLongPress}
-                        onPress={handlePress}
-                        onRangeChanged={({ startIndex, stopIndex }) =>
-                            ensureRange(startIndex, stopIndex)
-                        }
-                        ref={listRef}
-                        scrollKey="albums"
-                        serverId={serverId}
-                    />
-                )}
+            <Flex direction="row" style={{ flex: 1, minHeight: 0 }}>
+                <Flex direction="column" style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+                    {display === 'grid' ? (
+                        <RemoteGrid
+                            getItem={getRowData}
+                            itemCount={totalCount}
+                            onLongPress={handleLongPress}
+                            onPress={handlePress}
+                            onRangeChanged={({ startIndex, stopIndex }) =>
+                                ensureRange(startIndex, stopIndex)
+                            }
+                            ref={listRef}
+                            scrollKey="albums"
+                            serverId={serverId}
+                        />
+                    ) : (
+                        <RemoteList
+                            getItem={getRowData}
+                            itemCount={totalCount}
+                            onLongPress={handleLongPress}
+                            onPress={handlePress}
+                            onRangeChanged={({ startIndex, stopIndex }) =>
+                                ensureRange(startIndex, stopIndex)
+                            }
+                            ref={listRef}
+                            scrollKey="albums"
+                            serverId={serverId}
+                        />
+                    )}
+                </Flex>
                 {totalCount > RIBBON_MIN_TOTAL_COUNT && (
-                    <AlphaRibbon
-                        buckets={buckets}
-                        estimate={estimate}
-                        onScrollToIndex={(index, options) =>
-                            listRef.current?.scrollToIndex(index, options)
-                        }
-                        resolve={resolve}
-                    />
+                    <div
+                        style={{
+                            flexShrink: 0,
+                            position: 'relative',
+                            width: RIBBON_COLUMN_WIDTH_PX,
+                        }}
+                    >
+                        <AlphaRibbon
+                            buckets={buckets}
+                            estimate={estimate}
+                            onScrollToIndex={(index, options) =>
+                                listRef.current?.scrollToIndex(index, options)
+                            }
+                            resolve={resolve}
+                        />
+                    </div>
                 )}
             </Flex>
             <ActionSheet
