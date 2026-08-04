@@ -93,6 +93,14 @@ export interface RemoteQueueEntry {
 
 export type RemoteServer = Omit<ServerListItemWithCredential, 'savePassword'>;
 
+export interface RemoteTheme {
+    accent: string;
+    primaryShade: number;
+    theme: string;
+    useThemeAccentColor: boolean;
+    useThemePrimaryShade: boolean;
+}
+
 export interface ServerCurrentServer {
     data: null | RemoteServer;
     event: 'server';
@@ -116,6 +124,7 @@ export type ServerEvent =
     | ServerShuffle
     | ServerSong
     | ServerState
+    | ServerTheme
     | ServerVolume;
 
 export interface ServerFavorite {
@@ -171,6 +180,11 @@ export interface ServerSong {
 export interface ServerState {
     data: SongState;
     event: 'state';
+}
+
+export interface ServerTheme {
+    data: null | RemoteTheme;
+    event: 'theme';
 }
 
 export interface ServerVolume {

@@ -1,6 +1,6 @@
 import isElectron from 'is-electron';
 import debounce from 'lodash/debounce';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { getItemImageUrl } from '/@/renderer/components/item-image/item-image';
 import { usePlayerEvents } from '/@/renderer/features/player/audio-player/hooks/use-player-events';
@@ -18,10 +18,16 @@ import {
     useRemoteSettings,
 } from '/@/renderer/store';
 import { useCurrentServerWithCredential } from '/@/renderer/store/auth.store';
+import { useAccent, useThemeSettings } from '/@/renderer/store/settings.store';
 import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
 import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
-import { RemoteQueueEntry, RemoteServer, ServerQueue } from '/@/shared/types/remote-types';
+import {
+    RemoteQueueEntry,
+    RemoteServer,
+    RemoteTheme,
+    ServerQueue,
+} from '/@/shared/types/remote-types';
 import { PlayerShuffle } from '/@/shared/types/types';
 
 const remote = isElectron() ? window.api.remote : null;
@@ -44,6 +50,19 @@ export const useRemote = () => {
     const addToFavoritesMutation = useCreateFavorite({});
     const removeFromFavoritesMutation = useDeleteFavorite({});
     const currentServer = useCurrentServerWithCredential();
+    const accent = useAccent();
+    const {
+        followSystemTheme,
+        primaryShade,
+        theme,
+        themeDark,
+        themeLight,
+        useThemeAccentColor,
+        useThemePrimaryShade,
+    } = useThemeSettings();
+    const [isDark, setIsDark] = useState(
+        () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+    );
 
     const isRemoteEnabled = remoteSettings.enabled;
 
@@ -258,6 +277,47 @@ export const useRemote = () => {
         logger.debug('Sending current server', { id: server.id, name: server.name });
         remote.updateServer(server);
     }, [currentServer, isRemoteEnabled]);
+
+    useEffect(() => {
+        const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
+        const listener = (e: MediaQueryListEvent) => {
+            setIsDark(e.matches);
+        };
+        darkThemeMq.addEventListener('change', listener);
+        return () => darkThemeMq.removeEventListener('change', listener);
+    }, []);
+
+    // Push the effective theme (built-in AppTheme + accent/shade) on connect
+    // and whenever it changes, including a system dark/light switch.
+    useEffect(() => {
+        if (!isRemoteEnabled || !remote) {
+            return;
+        }
+
+        const selectedTheme = followSystemTheme ? (isDark ? themeDark : themeLight) : theme;
+
+        const payload: RemoteTheme = {
+            accent,
+            primaryShade,
+            theme: selectedTheme,
+            useThemeAccentColor,
+            useThemePrimaryShade,
+        };
+
+        logger.debug('Sending current theme', { theme: payload.theme });
+        remote.updateTheme(payload);
+    }, [
+        accent,
+        followSystemTheme,
+        isDark,
+        isRemoteEnabled,
+        primaryShade,
+        theme,
+        themeDark,
+        themeLight,
+        useThemeAccentColor,
+        useThemePrimaryShade,
+    ]);
 
     // Push a slim queue snapshot whenever the queue, current track, or shuffle
     // state changes. Reorders fire bursts of updates, so this is debounced.

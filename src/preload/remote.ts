@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron';
 
 import { LibraryItem, QueueSong } from '/@/shared/types/domain-types';
-import { RemoteServer, ServerQueue } from '/@/shared/types/remote-types';
+import { RemoteServer, RemoteTheme, ServerQueue } from '/@/shared/types/remote-types';
 import { Play, PlayerStatus } from '/@/shared/types/types';
 
 const requestFavorite = (
@@ -93,6 +93,10 @@ const updateServer = (server: null | RemoteServer) => {
     ipcRenderer.send('update-server', server);
 };
 
+const updateTheme = (theme: null | RemoteTheme) => {
+    ipcRenderer.send('update-theme', theme);
+};
+
 const updateShuffle = (shuffle: boolean) => {
     ipcRenderer.send('update-shuffle', shuffle);
 };
@@ -141,6 +145,7 @@ export const remote = {
     updateSetting,
     updateShuffle,
     updateSong,
+    updateTheme,
     updateUsername,
     updateVolume,
 };

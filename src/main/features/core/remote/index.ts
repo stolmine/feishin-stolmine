@@ -13,7 +13,13 @@ import { isLinux } from '/@/main/env';
 import { getMainWindow } from '/@/main/index';
 import log from '/@/main/logger';
 import { QueueSong } from '/@/shared/types/domain-types';
-import { ClientEvent, RemoteServer, ServerEvent, ServerQueue } from '/@/shared/types/remote-types';
+import {
+    ClientEvent,
+    RemoteServer,
+    RemoteTheme,
+    ServerEvent,
+    ServerQueue,
+} from '/@/shared/types/remote-types';
 import { PlayerRepeat, PlayerStatus, SongState } from '/@/shared/types/types';
 
 let mprisPlayer: any | undefined;
@@ -87,6 +93,7 @@ function sendInitialState(client: StatefulWebSocket): void {
         event: 'server',
     });
     send({ client, data: currentQueue, event: 'queue' });
+    send({ client, data: currentTheme, event: 'theme' });
 }
 
 export const shutdownServer = () => {
@@ -127,6 +134,7 @@ const ZLIB_REGEX = /bdeflate\b/;
 
 const currentState: SongState = {};
 let currentServer: null | RemoteServer = null;
+let currentTheme: null | RemoteTheme = null;
 let currentQueue: ServerQueue['data'] = {
     currentIndex: -1,
     currentUniqueId: null,
@@ -732,6 +740,11 @@ ipcMain.on('update-queue', (_event, queue: ServerQueue['data']) => {
 ipcMain.on('update-server', (_event, server: null | RemoteServer) => {
     currentServer = server;
     broadcast({ data: isRemoteGateConfigured() ? currentServer : null, event: 'server' });
+});
+
+ipcMain.on('update-theme', (_event, theme: null | RemoteTheme) => {
+    currentTheme = theme;
+    broadcast({ data: currentTheme, event: 'theme' });
 });
 
 ipcMain.on('update-volume', (_event, volume: number) => {

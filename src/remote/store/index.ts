@@ -5,10 +5,12 @@ import { shallow } from 'zustand/shallow';
 import { createWithEqualityFn } from 'zustand/traditional';
 
 import { useAuthStore } from '/@/renderer/store/auth.store';
+import { useSettingsStore } from '/@/renderer/store/settings.store';
 import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
 import {
     ClientEvent,
+    RemoteTheme,
     ServerEvent,
     ServerQueue,
     SongUpdateSocket,
@@ -40,6 +42,7 @@ interface SettingsState {
     isDark: boolean;
     lists: Record<RemoteListKey, { display: RemoteListDisplay }>;
     queue: null | ServerQueue['data'];
+    serverTheme: null | RemoteTheme;
     showImage: boolean;
     socket?: StatefulWebSocket;
 }
@@ -87,6 +90,7 @@ const initialState: SettingsState = {
         playlist: { display: 'grid' },
     },
     queue: null,
+    serverTheme: null,
     showImage: true,
 };
 
@@ -284,6 +288,30 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                         });
                                         break;
                                     }
+                                    case 'theme': {
+                                        logger.debug('Theme event received', {
+                                            hasTheme: !!data,
+                                            theme: data?.theme,
+                                        });
+
+                                        if (data) {
+                                            useSettingsStore.getState().actions.setSettings({
+                                                general: {
+                                                    accent: data.accent,
+                                                    followSystemTheme: false,
+                                                    primaryShade: data.primaryShade,
+                                                    theme: data.theme,
+                                                    useThemeAccentColor: data.useThemeAccentColor,
+                                                    useThemePrimaryShade: data.useThemePrimaryShade,
+                                                },
+                                            });
+                                        }
+
+                                        set((state) => {
+                                            state.serverTheme = data;
+                                        });
+                                        break;
+                                    }
                                     case 'volume': {
                                         logger.debug('Volume event received', { volume: data });
                                         set((state) => {
@@ -440,6 +468,8 @@ export const useSetListDisplay = () => useRemoteStore((state) => state.actions.s
 export const useShowImage = () => useRemoteStore((state) => state.showImage);
 
 export const useSend = () => useRemoteStore((state) => state.actions.send);
+
+export const useServerTheme = () => useRemoteStore((state) => state.serverTheme);
 
 export const useToggleDark = () => useRemoteStore((state) => state.actions.toggleIsDark);
 
