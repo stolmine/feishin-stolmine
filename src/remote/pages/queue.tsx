@@ -1,5 +1,5 @@
 import { PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RiArrowLeftLine, RiDeleteBinLine, RiPlayFill, RiShuffleLine } from 'react-icons/ri';
+import { RiArrowLeftLine, RiDeleteBinLine, RiShuffleLine } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
 import { ActionItem, ActionSheet } from '/@/remote/components/action-sheet';
@@ -40,7 +40,7 @@ export const QueuePage = () => {
     const [entries, setEntries] = useState<RemoteQueueEntry[]>(() => queue?.entries ?? []);
     const [dragUniqueId, setDragUniqueId] = useState<null | string>(null);
     const [dragOffsetY, setDragOffsetY] = useState(0);
-    const [selected, setSelected] = useState<null | RemoteQueueEntry>(null);
+    const [openSwipeUniqueId, setOpenSwipeUniqueId] = useState<null | string>(null);
     const [confirmClear, setConfirmClear] = useState(false);
 
     // Mirrors dragUniqueId but read inside the `queue` sync effect without
@@ -91,6 +91,7 @@ export const QueuePage = () => {
             dragStateRef.current = null;
             setDragUniqueId(null);
             setDragOffsetY(0);
+            setOpenSwipeUniqueId(null);
         }
     }, [queue]);
 
@@ -117,8 +118,6 @@ export const QueuePage = () => {
         [queuePlay],
     );
 
-    const handleLongPress = useCallback((entry: RemoteQueueEntry) => setSelected(entry), []);
-
     const handleDragPointerDown = useCallback(
         (entry: RemoteQueueEntry, index: number, event: PointerEvent<HTMLDivElement>) => {
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -132,33 +131,50 @@ export const QueuePage = () => {
             };
             setDragUniqueId(entry.uniqueId);
             setDragOffsetY(0);
+            // A reorder drag and an open swipe-actions row would otherwise
+            // fight over the row's transform, so starting a reorder always
+            // closes whatever swipe row is open.
+            setOpenSwipeUniqueId(null);
         },
         [entries],
     );
 
-    const handleDragPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
-        const drag = dragStateRef.current;
-        if (!drag || event.pointerId !== drag.pointerId) return;
-
-        const deltaY = event.clientY - drag.startY;
-        const indexDelta = Math.round(deltaY / QUEUE_ROW_HEIGHT);
-        const newIndex = Math.min(
-            Math.max(drag.startIndex + indexDelta, 0),
+    // Computes the dragged item's target index directly from the pointer-down
+    // snapshot (not the live, possibly-already-reordered `entries`), and the
+    // preview list is rebuilt from that same snapshot on every move. This is
+    // what makes the drag symmetric: `rawTarget` depends only on
+    // `drag.startIndex` and the raw pointer delta, never on where the item
+    // ended up after a previous move, so there is nothing to accumulate and
+    // dragging 5 slots down behaves exactly like dragging 5 slots up.
+    const computeDragTarget = useCallback((drag: DragState, clientY: number) => {
+        const deltaY = clientY - drag.startY;
+        const rawTarget = Math.min(
+            Math.max(drag.startIndex + Math.round(deltaY / QUEUE_ROW_HEIGHT), 0),
             drag.snapshot.length - 1,
         );
-
-        setEntries((current) => {
-            const fromIndex = current.findIndex((e) => e.uniqueId === drag.uniqueId);
-            if (fromIndex === -1 || fromIndex === newIndex) return current;
-
-            const next = current.slice();
-            const [moved] = next.splice(fromIndex, 1);
-            next.splice(newIndex, 0, moved);
-            return next;
-        });
-
-        setDragOffsetY(deltaY - indexDelta * QUEUE_ROW_HEIGHT);
+        return { deltaY, rawTarget };
     }, []);
+
+    const buildPreview = useCallback((drag: DragState, rawTarget: number) => {
+        const draggedEntry = drag.snapshot[drag.startIndex];
+        const withoutDragged = drag.snapshot.filter((e) => e.uniqueId !== drag.uniqueId);
+        const preview = withoutDragged.slice();
+        preview.splice(rawTarget, 0, draggedEntry);
+        return preview;
+    }, []);
+
+    const handleDragPointerMove = useCallback(
+        (event: PointerEvent<HTMLDivElement>) => {
+            const drag = dragStateRef.current;
+            if (!drag || event.pointerId !== drag.pointerId) return;
+
+            const { deltaY, rawTarget } = computeDragTarget(drag, event.clientY);
+
+            setEntries(buildPreview(drag, rawTarget));
+            setDragOffsetY(deltaY - (rawTarget - drag.startIndex) * QUEUE_ROW_HEIGHT);
+        },
+        [buildPreview, computeDragTarget],
+    );
 
     const endDrag = useCallback(
         (event: PointerEvent<HTMLDivElement>) => {
@@ -171,16 +187,20 @@ export const QueuePage = () => {
 
             if (!drag || event.pointerId !== drag.pointerId) return;
 
-            const current = entriesRef.current;
-            const finalIndex = current.findIndex((e) => e.uniqueId === drag.uniqueId);
             let moveSent = false;
 
-            if (finalIndex !== -1 && finalIndex !== drag.startIndex) {
-                const targetEntry = finalIndex === 0 ? current[1] : current[finalIndex - 1];
-                const edge = finalIndex === 0 ? 'top' : 'bottom';
-                if (targetEntry) {
-                    queueMove(edge, targetEntry.uniqueId, [drag.uniqueId]);
-                    moveSent = true;
+            if (drag.snapshot.length > 1) {
+                const { rawTarget } = computeDragTarget(drag, event.clientY);
+
+                if (rawTarget !== drag.startIndex) {
+                    const finalOrder = buildPreview(drag, rawTarget);
+                    const targetEntry = rawTarget === 0 ? finalOrder[1] : finalOrder[rawTarget - 1];
+                    const edge = rawTarget === 0 ? 'top' : 'bottom';
+
+                    if (targetEntry) {
+                        queueMove(edge, targetEntry.uniqueId, [drag.uniqueId]);
+                        moveSent = true;
+                    }
                 }
             }
 
@@ -193,31 +213,47 @@ export const QueuePage = () => {
                 if (latest) setEntries(latest.entries);
             }
         },
-        [queueMove],
+        [buildPreview, computeDragTarget, queueMove],
     );
 
-    const selectedActions = useMemo<ActionItem[]>(() => {
-        if (!selected) return [];
+    const handleSwipeDelete = useCallback(
+        (entry: RemoteQueueEntry) => queueRemove([entry.uniqueId]),
+        [queueRemove],
+    );
 
-        return [
-            {
-                icon: <RiPlayFill size={20} />,
-                label: 'Play',
-                onClick: () => {
-                    queuePlay(selected.uniqueId);
-                    setSelected(null);
-                },
-            },
-            {
-                icon: <RiDeleteBinLine size={20} />,
-                label: 'Remove from queue',
-                onClick: () => {
-                    queueRemove([selected.uniqueId]);
-                    setSelected(null);
-                },
-            },
-        ];
-    }, [queuePlay, queueRemove, selected]);
+    // "Play next": move the entry to right after the currently-playing track.
+    // If there is no current track, or the entry being moved IS the current
+    // track (there is no "after itself" to move to), fall back to moving it
+    // to the very top of the queue instead.
+    const handleSwipeNext = useCallback(
+        (entry: RemoteQueueEntry) => {
+            const current = entriesRef.current;
+
+            if (currentUniqueId && entry.uniqueId !== currentUniqueId) {
+                queueMove('bottom', currentUniqueId, [entry.uniqueId]);
+                return;
+            }
+
+            const first = current[0];
+            if (first && first.uniqueId !== entry.uniqueId) {
+                queueMove('top', first.uniqueId, [entry.uniqueId]);
+            }
+        },
+        [currentUniqueId, queueMove],
+    );
+
+    // "Play last": move the entry to the end of the queue.
+    const handleSwipeLast = useCallback(
+        (entry: RemoteQueueEntry) => {
+            const current = entriesRef.current;
+            const last = current[current.length - 1];
+
+            if (last && last.uniqueId !== entry.uniqueId) {
+                queueMove('bottom', last.uniqueId, [entry.uniqueId]);
+            }
+        },
+        [queueMove],
+    );
 
     const clearActions = useMemo<ActionItem[]>(
         () => [
@@ -291,26 +327,24 @@ export const QueuePage = () => {
                             index={index}
                             isCurrent={entry.uniqueId === currentUniqueId}
                             isDragging={dragUniqueId === entry.uniqueId}
+                            isSwipeOpen={openSwipeUniqueId === entry.uniqueId}
                             key={entry.uniqueId}
                             onDragLostPointerCapture={endDrag}
                             onDragPointerCancel={endDrag}
                             onDragPointerDown={handleDragPointerDown}
                             onDragPointerMove={handleDragPointerMove}
                             onDragPointerUp={endDrag}
-                            onLongPress={handleLongPress}
                             onPress={handlePress}
+                            onSwipeDelete={handleSwipeDelete}
+                            onSwipeLast={handleSwipeLast}
+                            onSwipeNext={handleSwipeNext}
+                            onSwipeOpenChange={setOpenSwipeUniqueId}
                             rowRef={entry.uniqueId === currentUniqueId ? currentRowRef : undefined}
                             serverId={serverId}
                         />
                     ))
                 )}
             </div>
-            <ActionSheet
-                actions={selectedActions}
-                onClose={() => setSelected(null)}
-                opened={!!selected}
-                title={selected?.name}
-            />
             <ActionSheet
                 actions={clearActions}
                 onClose={() => setConfirmClear(false)}
