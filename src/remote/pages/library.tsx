@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RiArrowRightSLine } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
@@ -12,10 +12,12 @@ import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index'
 import { useLongPress } from '/@/remote/components/item-list/use-long-press';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
-import { useHasLibraryAccess, useSend } from '/@/remote/store';
+import { SortControl } from '/@/remote/components/sort-control';
+import { useHasLibraryAccess, useListSort, useSend, useSetSort } from '/@/remote/store';
+import { getEffectiveSort, getSongSortOptions } from '/@/remote/utils/sort-options';
 import { searchQueries } from '/@/renderer/features/search/api/search-api';
 import { songsQueries } from '/@/renderer/features/songs/api/songs-api';
-import { useCurrentServerId } from '/@/renderer/store/auth.store';
+import { useCurrentServer, useCurrentServerId } from '/@/renderer/store/auth.store';
 import { Center } from '/@/shared/components/center/center';
 import { Flex } from '/@/shared/components/flex/flex';
 import { Stack } from '/@/shared/components/stack/stack';
@@ -124,9 +126,12 @@ const SearchResultRow = ({
 
 export const LibraryPage = () => {
     const serverId = useCurrentServerId();
+    const server = useCurrentServer();
     const hasLibraryAccess = useHasLibraryAccess();
     const send = useSend();
     const navigate = useNavigate();
+    const sort = useListSort('library');
+    const setSort = useSetSort();
 
     const [searchInput, setSearchInput] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -139,22 +144,44 @@ export const LibraryPage = () => {
 
     const isSearching = searchTerm.length > 0;
 
+    const sortOptions = useMemo(() => getSongSortOptions(server?.type), [server?.type]);
+
+    const effectiveSort = useMemo(
+        () => getEffectiveSort(sort, sortOptions, SongListSort.NAME),
+        [sort, sortOptions],
+    );
+
+    useEffect(() => {
+        if (effectiveSort !== sort) {
+            setSort('library', effectiveSort);
+        }
+    }, [effectiveSort, sort, setSort]);
+
     const countQueryOptions = useMemo(
         () =>
             songsQueries.listCount({
-                query: { sortBy: SongListSort.NAME, sortOrder: SortOrder.ASC },
+                options: { placeholderData: keepPreviousData },
+                query: {
+                    sortBy: effectiveSort.sortBy as SongListSort,
+                    sortOrder: effectiveSort.sortOrder,
+                },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const buildListQueryOptions = useCallback(
         (startIndex: number, limit: number) =>
             songsQueries.list({
-                query: { limit, sortBy: SongListSort.NAME, sortOrder: SortOrder.ASC, startIndex },
+                query: {
+                    limit,
+                    sortBy: effectiveSort.sortBy as SongListSort,
+                    sortOrder: effectiveSort.sortOrder,
+                    startIndex,
+                },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const { ensureRange, getItem, totalCount } = useRemoteInfiniteList<Song>({
@@ -165,9 +192,24 @@ export const LibraryPage = () => {
 
     const listRef = useRef<RemoteListHandle>(null);
 
+    const isNameAscSort =
+        effectiveSort.sortBy === SongListSort.NAME && effectiveSort.sortOrder === SortOrder.ASC;
+
+    const didMountRef = useRef(false);
+
+    useEffect(() => {
+        if (!didMountRef.current) {
+            didMountRef.current = true;
+            return;
+        }
+
+        listRef.current?.scrollToOffset(0, { behavior: 'auto' });
+    }, [effectiveSort.sortBy, effectiveSort.sortOrder]);
+
     const { buckets, estimate, resolve } = useLetterIndex<Song>({
         buildProbeQueryOptions: buildListQueryOptions,
-        cacheKey: 'library:name:asc',
+        cacheKey: `library:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`,
+        enabled: isNameAscSort,
         getLoadedItem: getItem,
         getName: (song) => song.name,
         serverId,
@@ -260,9 +302,19 @@ export const LibraryPage = () => {
     return (
         <Flex direction="column" h="100%" w="100%">
             <Stack gap="sm" px="md" py="sm">
-                <Text fw={700} size="lg">
-                    Library
-                </Text>
+                <Flex align="center" justify="space-between">
+                    <Text fw={700} size="lg">
+                        Library
+                    </Text>
+                    <Flex align="center" gap="xs">
+                        <SortControl
+                            onChange={(next) => setSort('library', next)}
+                            options={sortOptions}
+                            sortBy={effectiveSort.sortBy}
+                            sortOrder={effectiveSort.sortOrder}
+                        />
+                    </Flex>
+                </Flex>
                 <TextInput
                     onChange={(event) => setSearchInput(event.currentTarget.value)}
                     placeholder="Search songs, albums, artists"
@@ -288,11 +340,11 @@ export const LibraryPage = () => {
                                     ensureRange(startIndex, stopIndex)
                                 }
                                 ref={listRef}
-                                scrollKey="library"
+                                scrollKey={`library:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`}
                                 serverId={serverId}
                             />
                         </Flex>
-                        {totalCount > RIBBON_MIN_TOTAL_COUNT && (
+                        {totalCount > RIBBON_MIN_TOTAL_COUNT && isNameAscSort && (
                             <div
                                 style={{
                                     flexShrink: 0,

@@ -9,6 +9,13 @@ import { useSettingsStore } from '/@/renderer/store/settings.store';
 import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
 import {
+    AlbumArtistListSort,
+    AlbumListSort,
+    PlaylistListSort,
+    SongListSort,
+    SortOrder,
+} from '/@/shared/types/domain-types';
+import {
     ClientEvent,
     RemoteTheme,
     ServerEvent,
@@ -20,6 +27,11 @@ export type RemoteListDisplay = 'grid' | 'list';
 
 export type RemoteListKey = 'album' | 'artist' | 'library' | 'playlist';
 
+export interface RemoteSort {
+    sortBy: string;
+    sortOrder: SortOrder;
+}
+
 export interface SettingsSlice extends SettingsState {
     actions: {
         queueClear: () => void;
@@ -30,6 +42,7 @@ export interface SettingsSlice extends SettingsState {
         reconnect: () => void;
         send: (data: ClientEvent) => void;
         setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => void;
+        setSort: (key: RemoteListKey, sort: RemoteSort) => void;
         toggleIsDark: () => void;
         toggleShowImage: () => void;
     };
@@ -45,6 +58,7 @@ interface SettingsState {
     serverTheme: null | RemoteTheme;
     showImage: boolean;
     socket?: StatefulWebSocket;
+    sorts: Record<RemoteListKey, RemoteSort>;
 }
 
 interface StatefulWebSocket extends WebSocket {
@@ -92,6 +106,12 @@ const initialState: SettingsState = {
     queue: null,
     serverTheme: null,
     showImage: true,
+    sorts: {
+        album: { sortBy: AlbumListSort.NAME, sortOrder: SortOrder.ASC },
+        artist: { sortBy: AlbumArtistListSort.NAME, sortOrder: SortOrder.ASC },
+        library: { sortBy: SongListSort.NAME, sortOrder: SortOrder.ASC },
+        playlist: { sortBy: PlaylistListSort.NAME, sortOrder: SortOrder.ASC },
+    },
 };
 
 export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
@@ -404,6 +424,11 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                             state.lists[key].display = display;
                         });
                     },
+                    setSort: (key: RemoteListKey, sort: RemoteSort) => {
+                        set((state) => {
+                            state.sorts[key] = sort;
+                        });
+                    },
                     toggleIsDark: () => {
                         set((state) => {
                             state.isDark = !state.isDark;
@@ -430,8 +455,9 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                 isDark: state.isDark,
                 lists: state.lists,
                 showImage: state.showImage,
+                sorts: state.sorts,
             }),
-            version: 9,
+            version: 10,
         },
     ),
 );
@@ -464,6 +490,10 @@ export const useRemoteListDisplay = (key: RemoteListKey) =>
     useRemoteStore((state) => state.lists[key].display);
 
 export const useSetListDisplay = () => useRemoteStore((state) => state.actions.setListDisplay);
+
+export const useListSort = (key: RemoteListKey) => useRemoteStore((state) => state.sorts[key]);
+
+export const useSetSort = () => useRemoteStore((state) => state.actions.setSort);
 
 export const useShowImage = () => useRemoteStore((state) => state.showImage);
 

@@ -35,6 +35,7 @@ export const useRemoteInfiniteList = <TItem>({
 
     const pagesRef = useRef<Map<number, ListPage<TItem>>>(new Map());
     const inFlightRef = useRef<Set<number>>(new Set());
+    const epochRef = useRef(0);
     const [version, setVersion] = useState(0);
 
     const fetchPage = useCallback(
@@ -42,6 +43,8 @@ export const useRemoteInfiniteList = <TItem>({
             if (inFlightRef.current.has(pageIndex) || pagesRef.current.has(pageIndex)) {
                 return;
             }
+
+            const epoch = epochRef.current;
 
             inFlightRef.current.add(pageIndex);
 
@@ -54,6 +57,15 @@ export const useRemoteInfiniteList = <TItem>({
                         queryKey: readonly unknown[];
                     },
                 )) as { items: TItem[] };
+
+                // The reset effect below bumps `epochRef` whenever the query identity
+                // (server/sort/filter) changes. If that happened while this fetch was
+                // in flight, the result belongs to a stale sort and must be discarded —
+                // writing it into `pagesRef` would poison the new list and the
+                // `has(pageIndex)` guard above would then block the correct refetch.
+                if (epoch !== epochRef.current) {
+                    return;
+                }
 
                 pagesRef.current.set(pageIndex, { items: result.items, startIndex });
                 setVersion((v) => v + 1);
@@ -87,6 +99,7 @@ export const useRemoteInfiniteList = <TItem>({
     // so the first screen loads in parallel with the (often slower) count
     // query instead of waiting for it to resolve first.
     useEffect(() => {
+        epochRef.current += 1;
         pagesRef.current = new Map();
         inFlightRef.current = new Set();
         setVersion((v) => v + 1);

@@ -26,6 +26,7 @@ const resolvedIndexCache = new Map<string, number>();
 export function useLetterIndex<TItem>({
     buildProbeQueryOptions,
     cacheKey,
+    enabled,
     getLoadedItem,
     getName,
     serverId,
@@ -33,6 +34,7 @@ export function useLetterIndex<TItem>({
 }: {
     buildProbeQueryOptions: (startIndex: number, limit: number) => RemoteListQueryOptions;
     cacheKey: string;
+    enabled: boolean;
     getLoadedItem?: (index: number) => TItem | undefined;
     getName: (item: TItem) => string;
     serverId: string;
@@ -96,6 +98,12 @@ export function useLetterIndex<TItem>({
     // above) so it re-runs exactly when the underlying list identity changes,
     // never on an unrelated parent re-render.
     useEffect(() => {
+        // The ribbon only renders under name-asc sort; sampling/probing while it's
+        // hidden would fire wasted requests for a UI element nobody sees.
+        if (!enabled) {
+            return undefined;
+        }
+
         const effectScopedCacheKey = `${serverId}:${cacheKey}`;
 
         ensureCacheFresh(effectScopedCacheKey, totalCount);
@@ -162,10 +170,14 @@ export function useLetterIndex<TItem>({
         return () => {
             cancelled = true;
         };
-    }, [cacheKey, fetchProbeItem, serverId, totalCount]);
+    }, [cacheKey, enabled, fetchProbeItem, serverId, totalCount]);
 
     const resolve = useCallback(
         async (bucket: string): Promise<number> => {
+            if (!enabled) {
+                return 0;
+            }
+
             ensureCacheFresh(scopedCacheKey, totalCount);
 
             const cacheEntryKey = `${scopedCacheKey}:${bucket}`;
@@ -212,7 +224,7 @@ export function useLetterIndex<TItem>({
 
             return result;
         },
-        [fetchProbeItem, scopedCacheKey, totalCount],
+        [enabled, fetchProbeItem, scopedCacheKey, totalCount],
     );
 
     const estimate = useCallback(

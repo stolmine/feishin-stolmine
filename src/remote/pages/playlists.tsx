@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RiLayoutGridLine, RiListCheck2 } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
@@ -10,9 +11,17 @@ import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types'
 import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
-import { useHasLibraryAccess, useRemoteListDisplay, useSetListDisplay } from '/@/remote/store';
+import { SortControl } from '/@/remote/components/sort-control';
+import {
+    useHasLibraryAccess,
+    useListSort,
+    useRemoteListDisplay,
+    useSetListDisplay,
+    useSetSort,
+} from '/@/remote/store';
+import { getEffectiveSort, getPlaylistSortOptions } from '/@/remote/utils/sort-options';
 import { playlistsQueries } from '/@/renderer/features/playlists/api/playlists-api';
-import { useCurrentServerId } from '/@/renderer/store/auth.store';
+import { useCurrentServer, useCurrentServerId } from '/@/renderer/store/auth.store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Center } from '/@/shared/components/center/center';
 import { Flex } from '/@/shared/components/flex/flex';
@@ -39,20 +48,40 @@ interface SelectedPlaylist {
 
 export const PlaylistsPage = () => {
     const serverId = useCurrentServerId();
+    const server = useCurrentServer();
     const hasLibraryAccess = useHasLibraryAccess();
     const display = useRemoteListDisplay('playlist');
     const setListDisplay = useSetListDisplay();
+    const sort = useListSort('playlist');
+    const setSort = useSetSort();
     const navigate = useNavigate();
 
     const [selectedPlaylist, setSelectedPlaylist] = useState<null | SelectedPlaylist>(null);
 
+    const sortOptions = useMemo(() => getPlaylistSortOptions(server?.type), [server?.type]);
+
+    const effectiveSort = useMemo(
+        () => getEffectiveSort(sort, sortOptions, PlaylistListSort.NAME),
+        [sort, sortOptions],
+    );
+
+    useEffect(() => {
+        if (effectiveSort !== sort) {
+            setSort('playlist', effectiveSort);
+        }
+    }, [effectiveSort, sort, setSort]);
+
     const countQueryOptions = useMemo(
         () =>
             playlistsQueries.listCount({
-                query: { sortBy: PlaylistListSort.NAME, sortOrder: SortOrder.ASC },
+                options: { placeholderData: keepPreviousData },
+                query: {
+                    sortBy: effectiveSort.sortBy as PlaylistListSort,
+                    sortOrder: effectiveSort.sortOrder,
+                },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const buildListQueryOptions = useCallback(
@@ -60,13 +89,13 @@ export const PlaylistsPage = () => {
             playlistsQueries.list({
                 query: {
                     limit,
-                    sortBy: PlaylistListSort.NAME,
-                    sortOrder: SortOrder.ASC,
+                    sortBy: effectiveSort.sortBy as PlaylistListSort,
+                    sortOrder: effectiveSort.sortOrder,
                     startIndex,
                 },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const { ensureRange, getItem, totalCount } = useRemoteInfiniteList<Playlist>({
@@ -77,9 +106,24 @@ export const PlaylistsPage = () => {
 
     const listRef = useRef<RemoteListHandle>(null);
 
+    const isNameAscSort =
+        effectiveSort.sortBy === PlaylistListSort.NAME && effectiveSort.sortOrder === SortOrder.ASC;
+
+    const didMountRef = useRef(false);
+
+    useEffect(() => {
+        if (!didMountRef.current) {
+            didMountRef.current = true;
+            return;
+        }
+
+        listRef.current?.scrollToOffset(0, { behavior: 'auto' });
+    }, [effectiveSort.sortBy, effectiveSort.sortOrder]);
+
     const { buckets, estimate, resolve } = useLetterIndex<Playlist>({
         buildProbeQueryOptions: buildListQueryOptions,
-        cacheKey: 'playlists:name:asc',
+        cacheKey: `playlists:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`,
+        enabled: isNameAscSort,
         getLoadedItem: getItem,
         getName: (playlist) => playlist.name,
         serverId,
@@ -126,16 +170,26 @@ export const PlaylistsPage = () => {
                 <Text fw={700} size="lg">
                     Playlists
                 </Text>
-                <ActionIcon
-                    onClick={() => setListDisplay('playlist', display === 'grid' ? 'list' : 'grid')}
-                    variant="default"
-                >
-                    {display === 'grid' ? (
-                        <RiListCheck2 size={20} />
-                    ) : (
-                        <RiLayoutGridLine size={20} />
-                    )}
-                </ActionIcon>
+                <Flex align="center" gap="xs">
+                    <SortControl
+                        onChange={(next) => setSort('playlist', next)}
+                        options={sortOptions}
+                        sortBy={effectiveSort.sortBy}
+                        sortOrder={effectiveSort.sortOrder}
+                    />
+                    <ActionIcon
+                        onClick={() =>
+                            setListDisplay('playlist', display === 'grid' ? 'list' : 'grid')
+                        }
+                        variant="default"
+                    >
+                        {display === 'grid' ? (
+                            <RiListCheck2 size={20} />
+                        ) : (
+                            <RiLayoutGridLine size={20} />
+                        )}
+                    </ActionIcon>
+                </Flex>
             </Flex>
             <Flex direction="row" style={{ flex: 1, minHeight: 0 }}>
                 <Flex direction="column" style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
@@ -149,7 +203,7 @@ export const PlaylistsPage = () => {
                                 ensureRange(startIndex, stopIndex)
                             }
                             ref={listRef}
-                            scrollKey="playlists"
+                            scrollKey={`playlists:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`}
                             serverId={serverId}
                         />
                     ) : (
@@ -162,12 +216,12 @@ export const PlaylistsPage = () => {
                                 ensureRange(startIndex, stopIndex)
                             }
                             ref={listRef}
-                            scrollKey="playlists"
+                            scrollKey={`playlists:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`}
                             serverId={serverId}
                         />
                     )}
                 </Flex>
-                {totalCount > RIBBON_MIN_TOTAL_COUNT && (
+                {totalCount > RIBBON_MIN_TOTAL_COUNT && isNameAscSort && (
                     <div
                         style={{
                             flexShrink: 0,

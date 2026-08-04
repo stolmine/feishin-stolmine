@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RiLayoutGridLine, RiListCheck2 } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
@@ -10,9 +11,17 @@ import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types'
 import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
-import { useHasLibraryAccess, useRemoteListDisplay, useSetListDisplay } from '/@/remote/store';
+import { SortControl } from '/@/remote/components/sort-control';
+import {
+    useHasLibraryAccess,
+    useListSort,
+    useRemoteListDisplay,
+    useSetListDisplay,
+    useSetSort,
+} from '/@/remote/store';
+import { getArtistSortOptions, getEffectiveSort } from '/@/remote/utils/sort-options';
 import { artistsQueries } from '/@/renderer/features/artists/api/artists-api';
-import { useCurrentServerId } from '/@/renderer/store/auth.store';
+import { useCurrentServer, useCurrentServerId } from '/@/renderer/store/auth.store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Center } from '/@/shared/components/center/center';
 import { Flex } from '/@/shared/components/flex/flex';
@@ -46,20 +55,40 @@ interface SelectedArtist {
 
 export const ArtistsPage = () => {
     const serverId = useCurrentServerId();
+    const server = useCurrentServer();
     const hasLibraryAccess = useHasLibraryAccess();
     const display = useRemoteListDisplay('artist');
     const setListDisplay = useSetListDisplay();
+    const sort = useListSort('artist');
+    const setSort = useSetSort();
     const navigate = useNavigate();
 
     const [selectedArtist, setSelectedArtist] = useState<null | SelectedArtist>(null);
 
+    const sortOptions = useMemo(() => getArtistSortOptions(server?.type), [server?.type]);
+
+    const effectiveSort = useMemo(
+        () => getEffectiveSort(sort, sortOptions, AlbumArtistListSort.NAME),
+        [sort, sortOptions],
+    );
+
+    useEffect(() => {
+        if (effectiveSort !== sort) {
+            setSort('artist', effectiveSort);
+        }
+    }, [effectiveSort, sort, setSort]);
+
     const countQueryOptions = useMemo(
         () =>
             artistsQueries.albumArtistListCount({
-                query: { sortBy: AlbumArtistListSort.NAME, sortOrder: SortOrder.ASC },
+                options: { placeholderData: keepPreviousData },
+                query: {
+                    sortBy: effectiveSort.sortBy as AlbumArtistListSort,
+                    sortOrder: effectiveSort.sortOrder,
+                },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const buildListQueryOptions = useCallback(
@@ -67,13 +96,13 @@ export const ArtistsPage = () => {
             artistsQueries.albumArtistList({
                 query: {
                     limit,
-                    sortBy: AlbumArtistListSort.NAME,
-                    sortOrder: SortOrder.ASC,
+                    sortBy: effectiveSort.sortBy as AlbumArtistListSort,
+                    sortOrder: effectiveSort.sortOrder,
                     startIndex,
                 },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const { ensureRange, getItem, totalCount } = useRemoteInfiniteList<AlbumArtist>({
@@ -84,9 +113,25 @@ export const ArtistsPage = () => {
 
     const listRef = useRef<RemoteListHandle>(null);
 
+    const isNameAscSort =
+        effectiveSort.sortBy === AlbumArtistListSort.NAME &&
+        effectiveSort.sortOrder === SortOrder.ASC;
+
+    const didMountRef = useRef(false);
+
+    useEffect(() => {
+        if (!didMountRef.current) {
+            didMountRef.current = true;
+            return;
+        }
+
+        listRef.current?.scrollToOffset(0, { behavior: 'auto' });
+    }, [effectiveSort.sortBy, effectiveSort.sortOrder]);
+
     const { buckets, estimate, resolve } = useLetterIndex<AlbumArtist>({
         buildProbeQueryOptions: buildListQueryOptions,
-        cacheKey: 'artists:name:asc',
+        cacheKey: `artists:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`,
+        enabled: isNameAscSort,
         getLoadedItem: getItem,
         getName: (artist) => artist.name,
         serverId,
@@ -133,16 +178,26 @@ export const ArtistsPage = () => {
                 <Text fw={700} size="lg">
                     Artists
                 </Text>
-                <ActionIcon
-                    onClick={() => setListDisplay('artist', display === 'grid' ? 'list' : 'grid')}
-                    variant="default"
-                >
-                    {display === 'grid' ? (
-                        <RiListCheck2 size={20} />
-                    ) : (
-                        <RiLayoutGridLine size={20} />
-                    )}
-                </ActionIcon>
+                <Flex align="center" gap="xs">
+                    <SortControl
+                        onChange={(next) => setSort('artist', next)}
+                        options={sortOptions}
+                        sortBy={effectiveSort.sortBy}
+                        sortOrder={effectiveSort.sortOrder}
+                    />
+                    <ActionIcon
+                        onClick={() =>
+                            setListDisplay('artist', display === 'grid' ? 'list' : 'grid')
+                        }
+                        variant="default"
+                    >
+                        {display === 'grid' ? (
+                            <RiListCheck2 size={20} />
+                        ) : (
+                            <RiLayoutGridLine size={20} />
+                        )}
+                    </ActionIcon>
+                </Flex>
             </Flex>
             <Flex direction="row" style={{ flex: 1, minHeight: 0 }}>
                 <Flex direction="column" style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
@@ -156,7 +211,7 @@ export const ArtistsPage = () => {
                                 ensureRange(startIndex, stopIndex)
                             }
                             ref={listRef}
-                            scrollKey="artists"
+                            scrollKey={`artists:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`}
                             serverId={serverId}
                         />
                     ) : (
@@ -169,12 +224,12 @@ export const ArtistsPage = () => {
                                 ensureRange(startIndex, stopIndex)
                             }
                             ref={listRef}
-                            scrollKey="artists"
+                            scrollKey={`artists:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`}
                             serverId={serverId}
                         />
                     )}
                 </Flex>
-                {totalCount > RIBBON_MIN_TOTAL_COUNT && (
+                {totalCount > RIBBON_MIN_TOTAL_COUNT && isNameAscSort && (
                     <div
                         style={{
                             flexShrink: 0,

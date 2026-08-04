@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RiLayoutGridLine, RiListCheck2 } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
@@ -10,9 +11,17 @@ import { RemoteListHandle, RowData } from '/@/remote/components/item-list/types'
 import { useLetterIndex } from '/@/remote/components/item-list/use-letter-index';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { useRemoteInfiniteList } from '/@/remote/components/item-list/use-remote-infinite-list';
-import { useHasLibraryAccess, useRemoteListDisplay, useSetListDisplay } from '/@/remote/store';
+import { SortControl } from '/@/remote/components/sort-control';
+import {
+    useHasLibraryAccess,
+    useListSort,
+    useRemoteListDisplay,
+    useSetListDisplay,
+    useSetSort,
+} from '/@/remote/store';
+import { getAlbumSortOptions, getEffectiveSort } from '/@/remote/utils/sort-options';
 import { albumQueries } from '/@/renderer/features/albums/api/album-api';
-import { useCurrentServerId } from '/@/renderer/store/auth.store';
+import { useCurrentServer, useCurrentServerId } from '/@/renderer/store/auth.store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Center } from '/@/shared/components/center/center';
 import { Flex } from '/@/shared/components/flex/flex';
@@ -36,29 +45,54 @@ interface SelectedAlbum {
 
 export const AlbumsPage = () => {
     const serverId = useCurrentServerId();
+    const server = useCurrentServer();
     const hasLibraryAccess = useHasLibraryAccess();
     const display = useRemoteListDisplay('album');
     const setListDisplay = useSetListDisplay();
+    const sort = useListSort('album');
+    const setSort = useSetSort();
     const navigate = useNavigate();
 
     const [selectedAlbum, setSelectedAlbum] = useState<null | SelectedAlbum>(null);
 
+    const sortOptions = useMemo(() => getAlbumSortOptions(server?.type), [server?.type]);
+
+    const effectiveSort = useMemo(
+        () => getEffectiveSort(sort, sortOptions, AlbumListSort.NAME),
+        [sort, sortOptions],
+    );
+
+    useEffect(() => {
+        if (effectiveSort !== sort) {
+            setSort('album', effectiveSort);
+        }
+    }, [effectiveSort, sort, setSort]);
+
     const countQueryOptions = useMemo(
         () =>
             albumQueries.listCount({
-                query: { sortBy: AlbumListSort.NAME, sortOrder: SortOrder.ASC },
+                options: { placeholderData: keepPreviousData },
+                query: {
+                    sortBy: effectiveSort.sortBy as AlbumListSort,
+                    sortOrder: effectiveSort.sortOrder,
+                },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const buildListQueryOptions = useCallback(
         (startIndex: number, limit: number) =>
             albumQueries.list({
-                query: { limit, sortBy: AlbumListSort.NAME, sortOrder: SortOrder.ASC, startIndex },
+                query: {
+                    limit,
+                    sortBy: effectiveSort.sortBy as AlbumListSort,
+                    sortOrder: effectiveSort.sortOrder,
+                    startIndex,
+                },
                 serverId,
             }),
-        [serverId],
+        [serverId, effectiveSort],
     );
 
     const { ensureRange, getItem, totalCount } = useRemoteInfiniteList<Album>({
@@ -69,9 +103,24 @@ export const AlbumsPage = () => {
 
     const listRef = useRef<RemoteListHandle>(null);
 
+    const isNameAscSort =
+        effectiveSort.sortBy === AlbumListSort.NAME && effectiveSort.sortOrder === SortOrder.ASC;
+
+    const didMountRef = useRef(false);
+
+    useEffect(() => {
+        if (!didMountRef.current) {
+            didMountRef.current = true;
+            return;
+        }
+
+        listRef.current?.scrollToOffset(0, { behavior: 'auto' });
+    }, [effectiveSort.sortBy, effectiveSort.sortOrder]);
+
     const { buckets, estimate, resolve } = useLetterIndex<Album>({
         buildProbeQueryOptions: buildListQueryOptions,
-        cacheKey: 'albums:name:asc',
+        cacheKey: `albums:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`,
+        enabled: isNameAscSort,
         getLoadedItem: getItem,
         getName: (album) => album.name,
         serverId,
@@ -118,16 +167,26 @@ export const AlbumsPage = () => {
                 <Text fw={700} size="lg">
                     Albums
                 </Text>
-                <ActionIcon
-                    onClick={() => setListDisplay('album', display === 'grid' ? 'list' : 'grid')}
-                    variant="default"
-                >
-                    {display === 'grid' ? (
-                        <RiListCheck2 size={20} />
-                    ) : (
-                        <RiLayoutGridLine size={20} />
-                    )}
-                </ActionIcon>
+                <Flex align="center" gap="xs">
+                    <SortControl
+                        onChange={(next) => setSort('album', next)}
+                        options={sortOptions}
+                        sortBy={effectiveSort.sortBy}
+                        sortOrder={effectiveSort.sortOrder}
+                    />
+                    <ActionIcon
+                        onClick={() =>
+                            setListDisplay('album', display === 'grid' ? 'list' : 'grid')
+                        }
+                        variant="default"
+                    >
+                        {display === 'grid' ? (
+                            <RiListCheck2 size={20} />
+                        ) : (
+                            <RiLayoutGridLine size={20} />
+                        )}
+                    </ActionIcon>
+                </Flex>
             </Flex>
             <Flex direction="row" style={{ flex: 1, minHeight: 0 }}>
                 <Flex direction="column" style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
@@ -141,7 +200,7 @@ export const AlbumsPage = () => {
                                 ensureRange(startIndex, stopIndex)
                             }
                             ref={listRef}
-                            scrollKey="albums"
+                            scrollKey={`albums:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`}
                             serverId={serverId}
                         />
                     ) : (
@@ -154,12 +213,12 @@ export const AlbumsPage = () => {
                                 ensureRange(startIndex, stopIndex)
                             }
                             ref={listRef}
-                            scrollKey="albums"
+                            scrollKey={`albums:${effectiveSort.sortBy}:${effectiveSort.sortOrder}`}
                             serverId={serverId}
                         />
                     )}
                 </Flex>
-                {totalCount > RIBBON_MIN_TOTAL_COUNT && (
+                {totalCount > RIBBON_MIN_TOTAL_COUNT && isNameAscSort && (
                     <div
                         style={{
                             flexShrink: 0,
