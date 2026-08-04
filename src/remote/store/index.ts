@@ -6,7 +6,12 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { useAuthStore } from '/@/renderer/store/auth.store';
 import { logger } from '/@/renderer/utils/logger';
 import { toast } from '/@/shared/components/toast/toast';
-import { ClientEvent, ServerEvent, SongUpdateSocket } from '/@/shared/types/remote-types';
+import {
+    ClientEvent,
+    ServerEvent,
+    ServerQueue,
+    SongUpdateSocket,
+} from '/@/shared/types/remote-types';
 
 export type RemoteListDisplay = 'grid' | 'list';
 
@@ -14,6 +19,11 @@ export type RemoteListKey = 'album' | 'artist' | 'library' | 'playlist';
 
 export interface SettingsSlice extends SettingsState {
     actions: {
+        queueClear: () => void;
+        queueMove: (edge: 'bottom' | 'top', targetUniqueId: string, uniqueIds: string[]) => void;
+        queuePlay: (uniqueId: string) => void;
+        queueRemove: (uniqueIds: string[]) => void;
+        queueRequest: () => void;
         reconnect: () => void;
         send: (data: ClientEvent) => void;
         setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => void;
@@ -28,6 +38,7 @@ interface SettingsState {
     info: Omit<SongUpdateSocket, 'currentTime'>;
     isDark: boolean;
     lists: Record<RemoteListKey, { display: RemoteListDisplay }>;
+    queue: null | ServerQueue['data'];
     showImage: boolean;
     socket?: StatefulWebSocket;
 }
@@ -74,6 +85,7 @@ const initialState: SettingsState = {
         library: { display: 'list' },
         playlist: { display: 'grid' },
     },
+    queue: null,
     showImage: true,
 };
 
@@ -82,6 +94,21 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
         devtools(
             immer((set, get) => ({
                 actions: {
+                    queueClear: () => {
+                        get().actions.send({ event: 'queueClear' });
+                    },
+                    queueMove: (edge, targetUniqueId, uniqueIds) => {
+                        get().actions.send({ edge, event: 'queueMove', targetUniqueId, uniqueIds });
+                    },
+                    queuePlay: (uniqueId) => {
+                        get().actions.send({ event: 'queuePlay', uniqueId });
+                    },
+                    queueRemove: (uniqueIds) => {
+                        get().actions.send({ event: 'queueRemove', uniqueIds });
+                    },
+                    queueRequest: () => {
+                        get().actions.send({ event: 'queueRequest' });
+                    },
                     reconnect: async () => {
                         logger.info('Reconnect initiated');
                         // Cancel any pending scheduled retry — we are connecting now.
@@ -171,6 +198,16 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                             if (state.info.song) {
                                                 state.info.song.imageUrl = `data:image/jpeg;base64,${data}`;
                                             }
+                                        });
+                                        break;
+                                    }
+                                    case 'queue': {
+                                        logger.debug('Queue event received', {
+                                            currentIndex: data.currentIndex,
+                                            entryCount: data.entries.length,
+                                        });
+                                        set((state) => {
+                                            state.queue = data;
                                         });
                                         break;
                                     }
@@ -299,7 +336,7 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                                         code: reason.code,
                                         reason: reason.reason,
                                     });
-                                    set({ connected: false, info: {} });
+                                    set({ connected: false, info: {}, queue: null });
                                     scheduleReconnect(() => get().actions.reconnect());
                                 }
                             });
@@ -377,6 +414,17 @@ export const useHasLibraryAccess = () => useRemoteStore((state) => state.hasLibr
 export const useInfo = () => useRemoteStore((state) => state.info);
 
 export const useIsDark = () => useRemoteStore((state) => state.isDark);
+
+export const useQueue = () => useRemoteStore((state) => state.queue);
+
+export const useQueueActions = () =>
+    useRemoteStore((state) => ({
+        queueClear: state.actions.queueClear,
+        queueMove: state.actions.queueMove,
+        queuePlay: state.actions.queuePlay,
+        queueRemove: state.actions.queueRemove,
+        queueRequest: state.actions.queueRequest,
+    }));
 
 export const useReconnect = () => useRemoteStore((state) => state.actions.reconnect);
 
