@@ -154,9 +154,9 @@ export const RemoteContainer = () => {
                     variant="transparent"
                 >
                     {id && status === PlayerStatus.PLAYING ? (
-                        <RiPauseFill size={30} />
+                        <RiPauseFill size={34} />
                     ) : (
-                        <RiPlayFill size={30} style={{ transform: 'translateX(-2px)' }} />
+                        <RiPlayFill size={34} style={{ transform: 'translateX(-2px)' }} />
                     )}
                 </ActionIcon>
                 <ActionIcon
