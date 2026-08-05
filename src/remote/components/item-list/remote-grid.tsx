@@ -19,7 +19,7 @@ const MIN_CARD_WIDTH_PX = 168;
 const MIN_COLUMNS = 2;
 const MAX_COLUMNS = 3;
 const CARD_GAP_PX = 12;
-const TEXT_BLOCK_HEIGHT_PX = 44;
+const TEXT_BLOCK_HEIGHT_PX = 52;
 
 const alignToRowAlign = (align?: RemoteListScrollOptions['align']) => {
     if (align === 'top') return 'start' as const;
@@ -114,15 +114,15 @@ const RemoteGridCard = memo(
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 1,
-                        marginTop: 6,
+                        marginTop: 4,
                         minWidth: 0,
                     }}
                 >
-                    <Text fw={500} lineClamp={1} size="sm">
+                    <Text fw={500} lineClamp={1} size="md">
                         {item.title}
                     </Text>
                     {item.subtitle && (
-                        <Text isMuted lineClamp={1} size="xs">
+                        <Text isMuted lineClamp={1} size="sm">
                             {item.subtitle}
                         </Text>
                     )}

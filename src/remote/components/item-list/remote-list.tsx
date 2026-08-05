@@ -87,7 +87,7 @@ const RemoteListRow = memo(
             >
                 <CoverImage imageId={item.imageId} serverId={serverId} size={48} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <Text fw={500} lineClamp={1}>
+                    <Text fw={500} lineClamp={1} size="lg">
                         {item.title}
                     </Text>
                     {item.subtitle && (
