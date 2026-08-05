@@ -21,6 +21,10 @@ export interface RowData {
     id: string;
     imageId?: null | string;
     imageUrl?: null | string;
+    // Whether the row navigates into a detail view (a container: album, artist,
+    // playlist). Tracks are leaves that enqueue on tap, so they omit the chevron.
+    // Defaults to shown when undefined.
+    showChevron?: boolean;
     subtitle?: string;
     title: string;
 }

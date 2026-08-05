@@ -55,7 +55,9 @@ export const SearchResultRow = ({
                 )}
             </div>
             {row.favorite && <RiHeartFill color="var(--theme-colors-primary)" size={16} />}
-            <RiArrowRightSLine color="var(--theme-colors-foreground-muted)" size={20} />
+            {row.showChevron !== false && (
+                <RiArrowRightSLine color="var(--theme-colors-foreground-muted)" size={20} />
+            )}
         </div>
     );
 };

@@ -27,6 +27,7 @@ const songToRowData = (song: Song, imageId: null | string): RowData => ({
     favorite: song.userFavorite,
     id: song.id,
     imageId,
+    showChevron: false,
     subtitle: song.artistName,
     title: song.name,
 });

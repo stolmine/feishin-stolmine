@@ -1,5 +1,7 @@
+import { UnstyledButton } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { RiCloseLine } from 'react-icons/ri';
 import { useNavigate } from 'react-router';
 
 import { ActionSheet } from '/@/remote/components/action-sheet';
@@ -28,6 +30,7 @@ const songToRowData = (song: Song): RowData => ({
     favorite: song.userFavorite,
     id: song.id,
     imageId: song.imageId,
+    showChevron: false,
     subtitle: song.album ? `${song.artistName} — ${song.album}` : song.artistName,
     title: song.name,
 });
@@ -155,6 +158,23 @@ export const SearchPage = () => {
                 <TextInput
                     onChange={(event) => setSearchInput(event.currentTarget.value)}
                     placeholder="Search songs, albums, artists"
+                    rightSection={
+                        searchInput ? (
+                            <UnstyledButton
+                                aria-label="Clear search"
+                                onClick={() => setSearchInput('')}
+                                style={{ alignItems: 'center', display: 'flex' }}
+                            >
+                                <RiCloseLine
+                                    color="var(--theme-colors-foreground-muted)"
+                                    size={18}
+                                />
+                            </UnstyledButton>
+                        ) : undefined
+                    }
+                    rightSectionPointerEvents="auto"
+                    // 16px input font prevents iOS Safari from auto-zooming on focus.
+                    styles={{ input: { fontSize: '16px' } }}
                     value={searchInput}
                 />
             </Stack>

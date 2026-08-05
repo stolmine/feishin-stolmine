@@ -97,7 +97,9 @@ const RemoteListRow = memo(
                     )}
                 </div>
                 {item.favorite && <RiHeartFill color="var(--theme-colors-primary)" size={16} />}
-                <RiArrowRightSLine color="var(--theme-colors-foreground-muted)" size={20} />
+                {item.showChevron !== false && (
+                    <RiArrowRightSLine color="var(--theme-colors-foreground-muted)" size={20} />
+                )}
             </div>
         );
     },

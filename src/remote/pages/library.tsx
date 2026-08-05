@@ -28,6 +28,7 @@ const songToRowData = (song: Song): RowData => ({
     favorite: song.userFavorite,
     id: song.id,
     imageId: song.imageId,
+    showChevron: false,
     subtitle: song.album ? `${song.artistName} — ${song.album}` : song.artistName,
     title: song.name,
 });

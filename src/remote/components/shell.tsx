@@ -16,10 +16,11 @@ export const Shell = () => {
                     // page body growing unbounded (which made lists unscrollable).
                     height: '100dvh',
                     overflow: 'hidden',
-                    paddingBottom: 'calc(56px + env(safe-area-inset-bottom))',
+                    paddingBottom: 'calc(64px + env(safe-area-inset-bottom))',
                     // No logo header — content starts near the top edge with a
                     // tasteful margin that clears the device status bar / notch.
-                    paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
+                    // Trimmed to offset the taller tab bar (net content height ~same).
+                    paddingTop: 'calc(env(safe-area-inset-top) + 4px)',
                 }}
             >
                 <Outlet />

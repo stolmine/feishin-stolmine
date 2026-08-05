@@ -11,7 +11,6 @@ import { NavLink } from 'react-router';
 
 import { useHasLibraryAccess } from '/@/remote/store';
 import { Flex } from '/@/shared/components/flex/flex';
-import { Text } from '/@/shared/components/text/text';
 
 interface TabConfig {
     end?: boolean;
@@ -22,17 +21,17 @@ interface TabConfig {
 
 const nowPlayingTab: TabConfig = {
     end: true,
-    icon: <RiHome5Line size={22} />,
+    icon: <RiHome5Line size={28} />,
     label: 'Now Playing',
     path: '/',
 };
 
 const libraryTabs: TabConfig[] = [
-    { icon: <RiMusic2Line size={22} />, label: 'Library', path: '/library' },
-    { icon: <RiUser3Line size={22} />, label: 'Artists', path: '/artists' },
-    { icon: <RiAlbumLine size={22} />, label: 'Albums', path: '/albums' },
-    { icon: <RiPlayListLine size={22} />, label: 'Playlists', path: '/playlists' },
-    { icon: <RiSearchLine size={22} />, label: 'Search', path: '/search' },
+    { icon: <RiMusic2Line size={28} />, label: 'Library', path: '/library' },
+    { icon: <RiUser3Line size={28} />, label: 'Artists', path: '/artists' },
+    { icon: <RiAlbumLine size={28} />, label: 'Albums', path: '/albums' },
+    { icon: <RiPlayListLine size={28} />, label: 'Playlists', path: '/playlists' },
+    { icon: <RiSearchLine size={28} />, label: 'Search', path: '/search' },
 ];
 
 export const TabBar = () => {
@@ -50,7 +49,7 @@ export const TabBar = () => {
                 borderTop: '1px solid var(--theme-colors-border)',
                 bottom: 0,
                 display: 'flex',
-                height: 'calc(56px + env(safe-area-inset-bottom))',
+                height: 'calc(64px + env(safe-area-inset-bottom))',
                 left: 0,
                 paddingBottom: 'env(safe-area-inset-bottom)',
                 position: 'fixed',
@@ -73,16 +72,12 @@ export const TabBar = () => {
                         return (
                             <Flex
                                 align="center"
-                                direction="column"
-                                gap={2}
                                 h="100%"
                                 justify="center"
                                 style={{ color }}
+                                title={tab.label}
                             >
                                 {tab.icon}
-                                <Text size="xs" style={{ color }}>
-                                    {tab.label}
-                                </Text>
                             </Flex>
                         );
                     }}
