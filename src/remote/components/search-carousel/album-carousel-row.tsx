@@ -7,18 +7,15 @@ import { Stack } from '/@/shared/components/stack/stack';
 import { Text } from '/@/shared/components/text/text';
 import { Album } from '/@/shared/types/domain-types';
 
-const CARD_SIZE_PX = 112;
-const CARD_GAP_PX = 12;
+const CARD_SIZE_PX = 148;
+const CARD_GAP_PX = 14;
 // One card (width + gap) scrolls into view roughly every 3 seconds.
 const AUTO_SCROLL_MS_PER_CARD = 3000;
 const AUTO_SCROLL_SPEED_PX_PER_MS = (CARD_SIZE_PX + CARD_GAP_PX) / AUTO_SCROLL_MS_PER_CARD;
-// Idle delay after the user releases (or momentum settles) before auto-scroll resumes.
+// Idle delay after the user releases before auto-scroll resumes.
 const RESUME_DELAY_MS = 1500;
 // Clamp rAF deltas so returning from a background tab doesn't cause a big jump.
 const MAX_FRAME_DELTA_MS = 100;
-// scrollLeft writes get rounded by the browser; differences within this
-// threshold are treated as our own programmatic writes, not user scrolling.
-const PROGRAMMATIC_SCROLL_TOLERANCE_PX = 2;
 
 interface AlbumCarouselCardProps {
     album: Album;
@@ -56,7 +53,7 @@ const AlbumCarouselCard = memo(({ album, onPress, serverId }: AlbumCarouselCardP
                     minWidth: 0,
                 }}
             >
-                <Text fw={500} lineClamp={1} size="xs">
+                <Text fw={500} lineClamp={1} size="sm">
                     {album.name}
                 </Text>
                 {album.albumArtistName && (
@@ -132,7 +129,6 @@ export const AlbumCarouselRow = ({
         // Float scroll position; scrollLeft alone would lose the sub-pixel
         // advance of each frame to browser rounding.
         let position = track.scrollLeft;
-        let lastWritten = track.scrollLeft;
         let isPointerDown = false;
         let resumeAt = 0;
         let lastTimestamp: null | number = null;
@@ -152,7 +148,7 @@ export const AlbumCarouselRow = ({
             lastTimestamp = timestamp;
 
             if (isPointerDown || timestamp < resumeAt) {
-                // Track wherever the user (or momentum) left the row so
+                // Follow wherever the user (or momentum) left the row so
                 // auto-scroll resumes from there without a jump.
                 position = track.scrollLeft;
                 return;
@@ -164,10 +160,14 @@ export const AlbumCarouselRow = ({
                 position -= wrapWidth;
             }
 
-            lastWritten = position;
             track.scrollLeft = position;
         };
 
+        // Pausing is driven purely by pointer interaction — NOT by the scroll
+        // event. iOS reports scrollLeft asynchronously after a programmatic
+        // write, so comparing scrollLeft to our last write mis-detects our own
+        // auto-scroll as "user scrolling" and freezes the row. Pointer events
+        // are reliable; the RESUME_DELAY covers the brief post-release momentum.
         const handlePointerDown = () => {
             isPointerDown = true;
             pause();
@@ -179,24 +179,15 @@ export const AlbumCarouselRow = ({
         };
 
         const handleScroll = () => {
-            // Scroll events caused by our own writes land (modulo rounding) on
-            // the value we just set; anything else is the user scrubbing or
-            // post-release momentum, which keeps pushing the resume deadline.
-            if (Math.abs(track.scrollLeft - lastWritten) <= PROGRAMMATIC_SCROLL_TOLERANCE_PX) {
-                return;
-            }
-
-            pause();
-
-            // Keep manual scrubs endless too: past the seam, jump back by one
-            // list-width onto identical content.
+            // Auto-scroll always keeps scrollLeft < wrapWidth (it wraps in step),
+            // so a value past the seam can only come from a manual scrub — wrap
+            // it back onto identical content to keep manual scrubbing endless.
+            // No pause here: programmatic writes fire this too and must be ignored.
             if (track.scrollLeft >= wrapWidth) {
                 const wrapped = track.scrollLeft - wrapWidth;
-                lastWritten = wrapped;
                 track.scrollLeft = wrapped;
+                position = wrapped;
             }
-
-            position = track.scrollLeft;
         };
 
         track.addEventListener('pointerdown', handlePointerDown);
@@ -230,7 +221,7 @@ export const AlbumCarouselRow = ({
 
     return (
         <Stack gap={4}>
-            <Text fw={600} px="md" size="sm">
+            <Text fw={700} px="md" size="lg">
                 {label}
             </Text>
             <div className={styles.track} ref={trackRef}>

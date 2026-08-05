@@ -67,7 +67,7 @@ export const SearchCarousels = ({ onAlbumPress, serverId }: SearchCarouselsProps
 
     return (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-            <Stack gap="md" pb="md">
+            <Stack gap="xl" pb="md" pt="xs">
                 <AlbumCarouselRow
                     albums={randomAlbums}
                     label="Random"
