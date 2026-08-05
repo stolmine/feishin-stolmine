@@ -1,14 +1,49 @@
-.track {
+.row {
     display: flex;
-    gap: 12px;
-    padding: 2px 16px 4px;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/*
+ * Marquee viewport. `touch-action: pan-y` hands vertical gestures to the
+ * browser (page scroll) and horizontal gestures to our pointer handlers.
+ */
+.viewport {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+/*
+ * The animated strip. Auto-scroll drives `transform: translate3d(...)` — NOT
+ * scrollLeft — because iOS handles scrolling asynchronously on the compositor
+ * and quantizes/drops slow per-frame scrollLeft writes, which froze the
+ * previous implementation. Transforms are main-thread owned, sub-pixel
+ * accurate, and GPU-composited.
+ */
+.marquee-track {
+    display: flex;
+    width: max-content;
+    will-change: transform;
+}
+
+/*
+ * Fallback strip for prefers-reduced-motion and rows that don't overflow:
+ * a plain native horizontal scroller with no auto-advance.
+ */
+.static-track {
+    display: flex;
+    padding: 0 16px;
     overflow-x: auto;
     overscroll-behavior-x: contain;
-    touch-action: pan-x;
+    touch-action: pan-x pan-y;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
 }
 
-.track::-webkit-scrollbar {
+.static-track::-webkit-scrollbar {
     display: none;
 }
