@@ -1,4 +1,5 @@
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 
@@ -33,7 +34,8 @@ export const App = () => {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <MantineProvider defaultColorScheme={mode} theme={theme}>
+            <MantineProvider forceColorScheme={mode} theme={theme}>
+                <Notifications />
                 <RouterProvider router={router} />
             </MantineProvider>
         </QueryClientProvider>
