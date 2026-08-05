@@ -52,6 +52,9 @@ export const TabBar = () => {
                 height: 'calc(64px + env(safe-area-inset-bottom))',
                 left: 0,
                 paddingBottom: 'env(safe-area-inset-bottom)',
+                // Inset the row so the first/last tabs don't hug the screen corners.
+                paddingLeft: 12,
+                paddingRight: 12,
                 position: 'fixed',
                 right: 0,
                 zIndex: 200,
