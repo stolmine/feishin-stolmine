@@ -108,7 +108,7 @@ export const ArtistDetailPage = () => {
         [id, send, serverId],
     );
 
-    const subtitleParts = useMemo(() => {
+    const metaParts = useMemo(() => {
         if (!artist) return [];
         const parts: string[] = [];
         if (artist.albumCount) parts.push(`${artist.albumCount} albums`);
@@ -126,22 +126,28 @@ export const ArtistDetailPage = () => {
 
     return (
         <Flex direction="column" h="100%" w="100%">
-            <Stack gap="sm" p="md">
-                <Group align="flex-start" gap="md" wrap="nowrap">
+            <Stack gap="md" p="md">
+                <Group align="center" gap="md" wrap="nowrap">
                     <CoverImage
                         borderRadius={8}
                         imageId={artist.imageId}
                         itemType={LibraryItem.ARTIST}
                         serverId={serverId}
-                        size={96}
+                        size={112}
                     />
-                    <Stack gap={4} style={{ minWidth: 0 }}>
-                        <Text fw={700} lineClamp={2} size="lg">
+                    <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                            fw={700}
+                            lineClamp={2}
+                            style={{ fontSize: '1.375rem', lineHeight: 1.3 }}
+                        >
                             {artist.name}
                         </Text>
-                        <Text isMuted lineClamp={2} size="sm">
-                            {subtitleParts.join(' · ')}
-                        </Text>
+                        {metaParts.length > 0 && (
+                            <Text isMuted lineClamp={1} size="sm">
+                                {metaParts.join(' · ')}
+                            </Text>
+                        )}
                     </Stack>
                 </Group>
                 <Group gap="sm" grow>

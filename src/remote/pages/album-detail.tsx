@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { RiPlayFill, RiShuffleLine } from 'react-icons/ri';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import { ActionSheet } from '/@/remote/components/action-sheet';
 import { CoverImage } from '/@/remote/components/item-list/cover-image';
@@ -36,6 +36,7 @@ export const AlbumDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const serverId = useCurrentServerId();
     const send = useSend();
+    const navigate = useNavigate();
 
     const [selectedSong, setSelectedSong] = useState<null | Song>(null);
 
@@ -94,10 +95,22 @@ export const AlbumDetailPage = () => {
         [id, send, serverId],
     );
 
-    const subtitleParts = useMemo(() => {
+    // `/artists/:id` renders the album-artist detail page, so prefer the
+    // album-artist id over the (possibly featured/track-only) artist id, and
+    // skip empty-string ids so an empty page can't be linked to.
+    const albumArtist = useMemo(() => {
+        const candidate = [album?.albumArtists?.[0], album?.artists?.[0]].find((artist) =>
+            Boolean(artist?.id),
+        );
+        return {
+            id: candidate?.id,
+            name: album?.albumArtistName || candidate?.name,
+        };
+    }, [album]);
+
+    const metaParts = useMemo(() => {
         if (!album) return [];
         const parts: string[] = [];
-        if (album.albumArtistName) parts.push(album.albumArtistName);
         if (album.releaseYear) parts.push(String(album.releaseYear));
         if (album.songCount) parts.push(`${album.songCount} tracks`);
         if (album.duration) parts.push(formatDurationString(album.duration));
@@ -114,21 +127,44 @@ export const AlbumDetailPage = () => {
 
     return (
         <Flex direction="column" h="100%" w="100%">
-            <Stack gap="sm" p="md">
-                <Group align="flex-start" gap="md" wrap="nowrap">
+            <Stack gap="md" p="md">
+                <Group align="center" gap="md" wrap="nowrap">
                     <CoverImage
                         borderRadius={8}
                         imageId={album.imageId}
                         serverId={serverId}
-                        size={96}
+                        size={112}
                     />
-                    <Stack gap={4} style={{ minWidth: 0 }}>
-                        <Text fw={700} lineClamp={2} size="lg">
+                    <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                            fw={700}
+                            lineClamp={2}
+                            style={{ fontSize: '1.375rem', lineHeight: 1.3 }}
+                        >
                             {album.name}
                         </Text>
-                        <Text isMuted lineClamp={2} size="sm">
-                            {subtitleParts.join(' · ')}
-                        </Text>
+                        {albumArtist.name && (
+                            <Text
+                                component="span"
+                                fw={500}
+                                isLink={Boolean(albumArtist.id)}
+                                lineClamp={1}
+                                onClick={
+                                    albumArtist.id
+                                        ? () => navigate(`/artists/${albumArtist.id}`)
+                                        : undefined
+                                }
+                                size="md"
+                                style={{ alignSelf: 'flex-start', maxWidth: '100%' }}
+                            >
+                                {albumArtist.name}
+                            </Text>
+                        )}
+                        {metaParts.length > 0 && (
+                            <Text isMuted lineClamp={1} size="sm">
+                                {metaParts.join(' · ')}
+                            </Text>
+                        )}
                     </Stack>
                 </Group>
                 <Group gap="sm" grow>
