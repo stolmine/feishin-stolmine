@@ -109,10 +109,10 @@ export const RemoteContainer = () => {
                     icon="mediaShuffle"
                     iconProps={{
                         fill: shuffle ? 'primary' : 'default',
-                        size: 'lg',
+                        size: 26,
                     }}
                     onClick={() => send({ event: 'shuffle' })}
-                    size="md"
+                    size="lg"
                     tooltip={{
                         label: shuffle ? 'Shuffle tracks' : 'Shuffle disabled',
                     }}
@@ -123,10 +123,10 @@ export const RemoteContainer = () => {
                     icon="mediaPrevious"
                     iconProps={{
                         fill: 'default',
-                        size: 'xl',
+                        size: 30,
                     }}
                     onClick={() => send({ event: 'previous' })}
-                    size="lg"
+                    size="xl"
                     tooltip={{
                         label: 'Previous track',
                     }}
@@ -164,10 +164,10 @@ export const RemoteContainer = () => {
                     icon="mediaNext"
                     iconProps={{
                         fill: 'default',
-                        size: 'xl',
+                        size: 30,
                     }}
                     onClick={() => send({ event: 'next' })}
-                    size="lg"
+                    size="xl"
                     tooltip={{
                         label: 'Next track',
                     }}
@@ -184,10 +184,10 @@ export const RemoteContainer = () => {
                             repeat !== undefined && repeat !== PlayerRepeat.NONE
                                 ? 'primary'
                                 : 'default',
-                        size: 'lg',
+                        size: 26,
                     }}
                     onClick={() => send({ event: 'repeat' })}
-                    size="md"
+                    size="lg"
                     tooltip={{
                         label: `Repeat ${
                             repeat === PlayerRepeat.ONE
