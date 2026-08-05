@@ -8,6 +8,7 @@ import { ActionSheet } from '/@/remote/components/action-sheet';
 import { RowData } from '/@/remote/components/item-list/types';
 import { useQueueActions } from '/@/remote/components/item-list/use-queue-actions';
 import { PageHeader } from '/@/remote/components/page-header';
+import { SearchCarousels } from '/@/remote/components/search-carousel/search-carousels';
 import { SearchResultRow } from '/@/remote/components/search-result-row';
 import { useHasLibraryAccess, useSend } from '/@/remote/store';
 import { searchQueries } from '/@/renderer/features/search/api/search-api';
@@ -121,6 +122,13 @@ export const SearchPage = () => {
         setSelectedItem({ id: item.id, itemType: LibraryItem.ALBUM, name: item.title });
     }, []);
 
+    const handleCarouselAlbumPress = useCallback(
+        (album: Album) => {
+            navigate(`/albums/${album.id}`);
+        },
+        [navigate],
+    );
+
     const handleArtistPress = useCallback(
         (item: RowData) => {
             navigate(`/artists/${item.id}`);
@@ -186,9 +194,7 @@ export const SearchPage = () => {
                 }}
             >
                 {!isSearching ? (
-                    <Center h="100%" w="100%">
-                        <Text isMuted>Search for songs, albums, and artists</Text>
-                    </Center>
+                    <SearchCarousels onAlbumPress={handleCarouselAlbumPress} serverId={serverId} />
                 ) : isSearchLoading ? (
                     <Center h="100%" w="100%">
                         <Text isMuted>Searching…</Text>

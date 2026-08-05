@@ -1,0 +1,14 @@
+.track {
+    display: flex;
+    gap: 12px;
+    padding: 2px 16px 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.track::-webkit-scrollbar {
+    display: none;
+}
