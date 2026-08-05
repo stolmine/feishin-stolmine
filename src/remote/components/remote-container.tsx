@@ -48,6 +48,16 @@ export const RemoteContainer = () => {
             ) : (
                 <div style={{ flex: '1 1 0' }} />
             )}
+            {id && position !== undefined && (
+                <WrappedSlider
+                    label={(value) => formatDuration(value * 1e3)}
+                    leftLabel={formatDuration(position * 1e3)}
+                    max={song.duration / 1e3}
+                    onChangeEnd={(e) => send({ event: 'position', position: e })}
+                    rightLabel={formatDuration(song.duration)}
+                    value={position}
+                />
+            )}
             {id && (
                 <Stack gap={4} px="sm" style={{ flexShrink: 0 }} w="100%">
                     <Text
@@ -191,25 +201,11 @@ export const RemoteContainer = () => {
                 />
             </Group>
             <Stack gap={6} pb="xs" style={{ flexShrink: 0 }} w="100%">
-                {id && position !== undefined && (
-                    <WrappedSlider
-                        label={(value) => formatDuration(value * 1e3)}
-                        leftLabel={formatDuration(position * 1e3)}
-                        max={song.duration / 1e3}
-                        onChangeEnd={(e) => send({ event: 'position', position: e })}
-                        rightLabel={formatDuration(song.duration)}
-                        value={position}
-                    />
-                )}
                 <WrappedSlider
                     leftLabel={<RiVolumeUpFill size={20} />}
                     max={100}
                     onChangeEnd={(e) => send({ event: 'volume', volume: e })}
-                    rightLabel={
-                        <Text fw={600} size="xs">
-                            {volume ?? 0}
-                        </Text>
-                    }
+                    rightLabel={volume ?? 0}
                     value={volume ?? 0}
                 />
             </Stack>
