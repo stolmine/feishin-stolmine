@@ -104,12 +104,31 @@ home WiFi. The desktop keeps working, playback control keeps working (that's the
 WebSocket to the mini), and every browse request fails silently — a blank Albums page
 with no error, because `use-remote-infinite-list.ts` has no `catch`.
 
-**Fix:** on the server entry in Feishin's settings, set **Remote URL** to the
-Tailscale address `http://100.96.217.104:4533` and enable **Prefer remote URL**. That
-is exactly what those two fields are for, and it makes the phone work on any network.
-Navidrome serves permissive CORS (`Access-Control-Allow-Origin: *`, with
-`X-Nd-Authorization` in both allow- and expose-headers), so cross-origin is not a
-constraint.
+**Fix (confirmed working 2026-08-22):** the fields are **not** in Settings — Settings →
+Remote only configures the remote-control server itself (enable/port/username/password,
+i.e. the PWA host on `:4333`). They live on the **server entry**: sidebar server name →
+Edit → "Update Server" modal (`edit-server-form.tsx`), field order Name, URL, **Public
+URL**, username/password.
+
+- **Public URL** → `http://100.96.217.104:4533` (stol's tailnet IP). Note the label is
+  "Public URL", not "Remote URL", though the underlying field is `remoteUrl`.
+- then tick **Prefer Public URL** — this checkbox stays hidden until Public URL is
+  non-empty (`edit-server-form.tsx:243`).
+
+No reconnect needed; the desktop pushes the updated server object over the socket on
+change (`use-remote.tsx:259-290`).
+
+Note the mini's remote server is **not a proxy** — its HTTP route table is a fixed
+switch over `/`, `/credentials`, `/favicon.ico`, `/manifest.json`, `/remote.css`,
+`/remote.js`, `/worker.js`, and 404s everything else. No library traffic passes through
+it, which is why the server entry's URL must be reachable from the phone on its own.
+
+Not worth re-chasing: CORS is fine (Navidrome returns `Access-Control-Allow-Origin: *`
+with `X-Nd-Authorization` in both allow- and expose-headers).
+
+**Diagnostic shortcut:** a 401 prints "Connect the Feishin desktop app to browse the
+library." A *blank* page with no text means the requests never completed — network, not
+auth.
 
 ## Note on the auto-updater
 
