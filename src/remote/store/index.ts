@@ -4,6 +4,7 @@ import { immer } from 'zustand/middleware/immer';
 import { shallow } from 'zustand/shallow';
 import { createWithEqualityFn } from 'zustand/traditional';
 
+import { queryClient } from '/@/remote/lib/query-client';
 import { useAuthStore } from '/@/renderer/store/auth.store';
 import { useSettingsStore } from '/@/renderer/store/settings.store';
 import { logger } from '/@/renderer/utils/logger';
@@ -45,6 +46,7 @@ export interface SettingsSlice extends SettingsState {
         setAutoDj: (settings: Partial<RemoteAutoDj>) => void;
         setListDisplay: (key: RemoteListKey, display: RemoteListDisplay) => void;
         setSort: (key: RemoteListKey, sort: RemoteSort) => void;
+        signOut: () => void;
         toggleIsDark: () => void;
         toggleShowImage: () => void;
     };
@@ -456,6 +458,35 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                             state.sorts[key] = sort;
                         });
                     },
+                    // Drop every music-server credential this device has cached and
+                    // forget the browse data fetched with it. The remote PWA has no
+                    // login of its own — credentials only ever arrive on the `server`
+                    // event — so this is the only way to discard a stale credential
+                    // that persisted into localStorage from an earlier session. The
+                    // socket is left open; `reconnect` re-pulls a fresh `server`
+                    // event from the desktop.
+                    signOut: () => {
+                        logger.info('Sign out initiated — clearing cached credentials');
+
+                        const { actions: authActions, serverList } = useAuthStore.getState();
+
+                        // deleteServer (not logout) — logout blanks the credential but
+                        // leaves the entry behind, and the persisted entry is exactly
+                        // what we need gone.
+                        for (const id of Object.keys(serverList)) {
+                            authActions.deleteServer(id);
+                        }
+                        authActions.setCurrentServer(null);
+
+                        // Cached list pages and artwork were fetched with the old
+                        // credential; without this they linger and mask the signed-out
+                        // state.
+                        queryClient.clear();
+
+                        set((state) => {
+                            state.hasLibraryAccess = false;
+                        });
+                    },
                     toggleIsDark: () => {
                         set((state) => {
                             state.isDark = !state.isDark;
@@ -525,6 +556,8 @@ export const useSetListDisplay = () => useRemoteStore((state) => state.actions.s
 export const useListSort = (key: RemoteListKey) => useRemoteStore((state) => state.sorts[key]);
 
 export const useSetSort = () => useRemoteStore((state) => state.actions.setSort);
+
+export const useSignOut = () => useRemoteStore((state) => state.actions.signOut);
 
 export const useShowImage = () => useRemoteStore((state) => state.showImage);
 

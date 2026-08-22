@@ -1,7 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 
 import { ImageButton } from '/@/remote/components/buttons/image-button';
-import { ReconnectButton } from '/@/remote/components/buttons/reconnect-button';
 import { ThemeButton } from '/@/remote/components/buttons/theme-button';
 import { PageHeader } from '/@/remote/components/page-header';
 import {
@@ -9,9 +8,12 @@ import {
     RemoteListKey,
     useConnected,
     useHasLibraryAccess,
+    useReconnect,
     useRemoteListDisplay,
     useSetListDisplay,
+    useSignOut,
 } from '/@/remote/store';
+import { Button } from '/@/shared/components/button/button';
 import { Flex } from '/@/shared/components/flex/flex';
 import { Group } from '/@/shared/components/group/group';
 import { SegmentedControl } from '/@/shared/components/segmented-control/segmented-control';
@@ -42,6 +44,57 @@ const ListDisplayRow = ({ label, listKey }: { label: string; listKey: RemoteList
                 onChange={(value) => setListDisplay(listKey, value as RemoteListDisplay)}
                 value={display}
             />
+        </Group>
+    );
+};
+
+// Reconnect re-pulls the `server` event (and with it the desktop's current
+// music-server credential); sign out discards the credential this device has
+// cached. Both are plain labelled buttons on purpose — the old icon-only
+// reconnect control relied on a tooltip, which never appears on touch.
+const SessionControls = () => {
+    const reconnect = useReconnect();
+    const signOut = useSignOut();
+    const hasLibraryAccess = useHasLibraryAccess();
+    const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+
+    if (confirmingSignOut) {
+        return (
+            <Stack gap="xs">
+                <Text isMuted size="sm">
+                    Sign out and forget this device&apos;s saved library credentials? Playback
+                    control keeps working; tap Reconnect to browse again.
+                </Text>
+                <Group gap="sm" grow>
+                    <Button onClick={() => setConfirmingSignOut(false)} variant="default">
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={() => {
+                            signOut();
+                            setConfirmingSignOut(false);
+                        }}
+                        variant="state-error"
+                    >
+                        Sign out
+                    </Button>
+                </Group>
+            </Stack>
+        );
+    }
+
+    return (
+        <Group gap="sm" grow>
+            <Button onClick={() => reconnect()} variant="filled">
+                Reconnect
+            </Button>
+            <Button
+                disabled={!hasLibraryAccess}
+                onClick={() => setConfirmingSignOut(true)}
+                variant="default"
+            >
+                Sign out
+            </Button>
         </Group>
     );
 };
@@ -89,13 +142,13 @@ export const SettingsPage = () => {
                         <Text isMuted>Library access</Text>
                         <Text>{hasLibraryAccess ? 'Available' : 'Unavailable'}</Text>
                     </Group>
+                    <SessionControls />
                 </SettingsSection>
 
                 <SettingsSection title="Display">
                     <Group gap="sm">
                         <ThemeButton />
                         <ImageButton />
-                        <ReconnectButton />
                     </Group>
                 </SettingsSection>
 
