@@ -77,7 +77,15 @@ interface StatefulWebSocket extends WebSocket {
 // failed.
 let reconnectTimer: null | ReturnType<typeof setTimeout> = null;
 let reconnectAttempts = 0;
-const RECONNECT_MAX_DELAY_MS = 15000;
+// A retry is one small fetch plus a socket open against a machine on the same
+// tailnet — cheap. Backing off to 15s bought nothing and meant a phone opened
+// during a bad patch could sit idle for a full 15s window before trying again.
+const RECONNECT_MAX_DELAY_MS = 4000;
+// Spread simultaneous retries (several tabs, or a reconnect racing the resume
+// handler) so they do not all land on the desktop in the same instant.
+const RECONNECT_JITTER_MS = 500;
+// Upper bound on the /credentials request that gates every connection attempt.
+const CREDENTIALS_TIMEOUT_MS = 2500;
 
 const clearReconnect = () => {
     if (reconnectTimer) {
@@ -88,7 +96,9 @@ const clearReconnect = () => {
 
 const scheduleReconnect = (reconnect: () => void) => {
     if (reconnectTimer) return;
-    const delay = Math.min(RECONNECT_MAX_DELAY_MS, 1000 * 2 ** reconnectAttempts);
+    const delay =
+        Math.min(RECONNECT_MAX_DELAY_MS, 1000 * 2 ** reconnectAttempts) +
+        Math.random() * RECONNECT_JITTER_MS;
     reconnectAttempts += 1;
     logger.info('Scheduling remote reconnect', { attempt: reconnectAttempts, delay });
     reconnectTimer = setTimeout(() => {
@@ -160,10 +170,19 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                         }
 
                         let authHeader: string | undefined;
+                        let credentialsUnreachable = false;
 
                         try {
                             logger.debug('Fetching credentials');
-                            const credentials = await fetch('/credentials', { cache: 'no-store' });
+                            // Bounded: fetch has no default timeout, and this await sits
+                            // in front of the WebSocket construction. On an iOS resume
+                            // with a half-open socket the request can hang indefinitely,
+                            // and the connection is never even attempted. Failing fast
+                            // drops us into the reconnect backoff, which retries.
+                            const credentials = await fetch('/credentials', {
+                                cache: 'no-store',
+                                signal: AbortSignal.timeout(CREDENTIALS_TIMEOUT_MS),
+                            });
                             if (credentials.ok) {
                                 authHeader = await credentials.text();
                             } else {
@@ -177,6 +196,21 @@ export const useRemoteStore = createWithEqualityFn<SettingsSlice>()(
                             logger.debug('Credentials fetched', { hasAuthHeader: !!authHeader });
                         } catch (error) {
                             logger.error('Failed to get credentials', { error });
+                            credentialsUnreachable = true;
+                        }
+
+                        // The request never reached the desktop (timeout or network
+                        // error), so we cannot know whether the remote gate is
+                        // configured. Opening the socket anyway is worse than not
+                        // opening it: with a gate configured we would never send
+                        // `authenticate`, yet the open handler still flips `connected`
+                        // to true and resets the backoff — the UI claims to be live for
+                        // the full 10s until the desktop's auth timeout closes it.
+                        // Retry instead; the same failure that broke this fetch would
+                        // almost certainly have broken the socket too.
+                        if (credentialsUnreachable) {
+                            scheduleReconnect(() => get().actions.reconnect());
+                            return;
                         }
 
                         set((state) => {
@@ -579,13 +613,9 @@ export const useToggleShowImage = () => useRemoteStore((state) => state.actions.
 // working app again — previously the user had to kill and relaunch by hand.
 if (typeof document !== 'undefined') {
     // Backgrounded longer than this ⇒ assume iOS may have gutted the page and arm
-    // the reload fallback; short blips (app switcher, notification shade) rely on
-    // the plain reconnect alone.
-    const RESUME_STALE_MS = 30000;
     // How long after resume the socket gets to come back before we force-reload.
-    const REVIVE_TIMEOUT_MS = 8000;
+    const REVIVE_TIMEOUT_MS = 5000;
 
-    let hiddenAt: null | number = null;
     let reviveTimer: null | ReturnType<typeof setTimeout> = null;
     // At most one forced reload per resume — reset when the app is hidden again —
     // so a down/unreachable desktop can never cause a reload loop.
@@ -617,25 +647,27 @@ if (typeof document !== 'undefined') {
         }, REVIVE_TIMEOUT_MS);
     };
 
-    const onResume = (viaBackForwardCache: boolean) => {
-        const hiddenFor = hiddenAt === null ? 0 : Date.now() - hiddenAt;
-        hiddenAt = null;
+    const onResume = () => {
         // Timers were frozen while backgrounded — restart the backoff from zero so
         // the first retry after waking is immediate, not a leftover long delay.
         reconnectAttempts = 0;
         clearReconnect();
         reconnectIfStale();
 
-        if (viaBackForwardCache || hiddenFor >= RESUME_STALE_MS) {
+        // Arm on any resume that finds the socket dead. This used to be gated on
+        // being hidden 30s+ (or a bfcache restore), which left a gap: background
+        // for 20s, come back to a connection that never completes, and nothing
+        // rescued it. `didForceReload` still caps this at one reload per
+        // background cycle, so an unreachable desktop cannot cause a reload loop.
+        if (isSocketDead()) {
             armRevivalWatchdog();
         }
     };
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            onResume(false);
+            onResume();
         } else {
-            hiddenAt = Date.now();
             // New background cycle: allow one reload on the next resume, and
             // disarm any watchdog from the previous one.
             didForceReload = false;
@@ -653,7 +685,7 @@ if (typeof document !== 'undefined') {
     // forced reload cannot loop.
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
-            onResume(true);
+            onResume();
         }
     });
 
