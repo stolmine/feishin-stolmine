@@ -840,7 +840,14 @@ async function createWindow(first = true): Promise<void> {
             });
     });
 
-    if (!disableAutoUpdates() && store.get('disable_auto_updates') !== true) {
+    // Fork builds never self-update: every update feed (GitHub latest, nightly bucket) is
+    // upstream, and installing it silently replaces this fork with stock Feishin.
+    const FORK_AUTO_UPDATES_ENABLED = false;
+    if (
+        FORK_AUTO_UPDATES_ENABLED &&
+        !disableAutoUpdates() &&
+        store.get('disable_auto_updates') !== true
+    ) {
         new AppUpdater();
     }
 

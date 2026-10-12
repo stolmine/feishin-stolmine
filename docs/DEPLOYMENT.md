@@ -130,9 +130,21 @@ with `X-Nd-Authorization` in both allow- and expose-headers).
 library." A *blank* page with no text means the requests never completed — network, not
 auth.
 
-## Note on the auto-updater
+## Auto-updater is disabled in the fork
 
-`electron-builder.yml` points `publish` at `owner: jeffvli, repo: feishin` — **upstream**,
-not this fork. On macOS the updater only notifies (`autoDownload = false`,
-`src/main/index.ts:98-101`), but accepting an update prompt on the mini would replace
-this fork with stock Feishin, which has a transport-only remote.
+Every update feed the app knows (GitHub `latest`, the nightly bucket) is **upstream**, so any
+update replaces this fork with stock Feishin, which has a transport-only remote. On Linux the
+updater downloads automatically and installs on quit; that is how bram-g6 silently went to
+upstream 1.17.0 on 2026-09-26. The fork now never starts the updater
+(`FORK_AUTO_UPDATES_ENABLED = false`, `src/main/index.ts`), and `electron-builder.yml`
+publishes to `stolmine/feishin-stolmine`. Builds made before this change still self-update:
+redeploy them, and delete `~/.cache/feishin-updater` on Linux hosts.
+
+## Linux (bram-g6)
+
+Build natively on the g6, not the MBA: rsync the source to `~/feishin-stolmine-build`
+(exclude `node_modules`, `out`, `dist`), then `pnpm install --frozen-lockfile` and
+`pnpm run build && pnpm exec electron-builder --linux AppImage --publish never`. The full
+`package:linux` script fails on the `.deb` target (`fpm` needs `libcrypt.so.1`). Quit
+Feishin, then copy `dist/Feishin-linux-x86_64.AppImage` over `~/Applications/Feishin.AppImage`
+(the desktop entry launches that path).
